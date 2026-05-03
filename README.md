@@ -74,6 +74,22 @@ The owner page will be available at:
 https://YOUR-USERNAME.github.io/YOUR-REPOSITORY/#owner
 ```
 
+### Alternative: Deploy From `docs`
+
+If you use **Settings > Pages > Deploy from a branch**, run:
+
+```powershell
+npm run deploy:docs
+```
+
+Then commit and push the generated `docs` folder. In GitHub Pages settings choose:
+
+```text
+Source: Deploy from a branch
+Branch: main
+Folder: /docs
+```
+
 ## Note
 
 This project stores demo orders and bookings in browser `localStorage`. For a real public restaurant website, connect the checkout and owner dashboard to a secure backend database and authentication system.
