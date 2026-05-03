@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+
 import {
   CalendarCheck,
   CheckCircle2,
@@ -19,6 +20,16 @@ import {
 } from 'lucide-react'
 
 const categories = ['All', 'Burgers', 'Chicken', 'Pizza', 'Sides', 'Dessert', 'Drinks']
+
+const OWNER_PASSCODE = '1234'
+
+const storageKeys = {
+  legacyOrders: 'flameForkOrders',
+  legacyReservations: 'flameForkReservations',
+  owner: 'burgerRushOwner',
+  orders: 'burgerRushOrders',
+  reservations: 'burgerRushReservations',
+}
 
 const menuItems = [
   {
@@ -118,8 +129,24 @@ function downloadFile(filename, content) {
   URL.revokeObjectURL(url)
 }
 
+function readStoredList(primaryKey, fallbackKey) {
+  const stored = localStorage.getItem(primaryKey) || localStorage.getItem(fallbackKey)
+
+  if (!stored) {
+    return []
+  }
+
+  try {
+    return JSON.parse(stored)
+  } catch {
+    return []
+  }
+}
+
 export default function App() {
-  const isOwnerPage = window.location.pathname === '/owner'
+  const [isOwnerPage, setIsOwnerPage] = useState(
+    () => window.location.pathname.endsWith('/owner') || window.location.hash === '#owner',
+  )
   const cartIconRef = useRef(null)
   const [activeCategory, setActiveCategory] = useState('All')
   const [searchTerm, setSearchTerm] = useState('')
@@ -132,17 +159,15 @@ export default function App() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [ownerPasscode, setOwnerPasscode] = useState('')
   const [ownerError, setOwnerError] = useState('')
-  const [isOwner, setIsOwner] = useState(() => localStorage.getItem('burgerRushOwner') === 'true')
+  const [isOwner, setIsOwner] = useState(() => localStorage.getItem(storageKeys.owner) === 'true')
   const [flyingItem, setFlyingItem] = useState(null)
   const [editingOrderId, setEditingOrderId] = useState(null)
   const [editOrderDraft, setEditOrderDraft] = useState(null)
   const [savedOrders, setSavedOrders] = useState(() => {
-    const stored = localStorage.getItem('burgerRushOrders') || localStorage.getItem('flameForkOrders')
-    return stored ? JSON.parse(stored) : []
+    return readStoredList(storageKeys.orders, storageKeys.legacyOrders)
   })
   const [savedReservations, setSavedReservations] = useState(() => {
-    const stored = localStorage.getItem('burgerRushReservations') || localStorage.getItem('flameForkReservations')
-    return stored ? JSON.parse(stored) : []
+    return readStoredList(storageKeys.reservations, storageKeys.legacyReservations)
   })
 
   const filteredItems = useMemo(() => {
@@ -166,19 +191,28 @@ export default function App() {
   const ownerRevenue = savedOrders.reduce((sum, order) => sum + order.total, 0)
 
   useEffect(() => {
-    localStorage.setItem('burgerRushOrders', JSON.stringify(savedOrders))
+    localStorage.setItem(storageKeys.orders, JSON.stringify(savedOrders))
   }, [savedOrders])
 
   useEffect(() => {
-    localStorage.setItem('burgerRushReservations', JSON.stringify(savedReservations))
+    localStorage.setItem(storageKeys.reservations, JSON.stringify(savedReservations))
   }, [savedReservations])
+
+  useEffect(() => {
+    function syncOwnerRoute() {
+      setIsOwnerPage(window.location.pathname.endsWith('/owner') || window.location.hash === '#owner')
+    }
+
+    window.addEventListener('hashchange', syncOwnerRoute)
+    return () => window.removeEventListener('hashchange', syncOwnerRoute)
+  }, [])
 
   function ownerLogin(event) {
     event.preventDefault()
 
-    if (ownerPasscode === '1234') {
+    if (ownerPasscode === OWNER_PASSCODE) {
       setIsOwner(true)
-      localStorage.setItem('burgerRushOwner', 'true')
+      localStorage.setItem(storageKeys.owner, 'true')
       setOwnerPasscode('')
       setOwnerError('')
     } else {
@@ -188,7 +222,7 @@ export default function App() {
 
   function ownerLogout() {
     setIsOwner(false)
-    localStorage.removeItem('burgerRushOwner')
+    localStorage.removeItem(storageKeys.owner)
   }
 
   function exportOrders() {
@@ -436,124 +470,124 @@ export default function App() {
                         className={order.status === 'Complete' ? 'admin-row complete' : 'admin-row'}
                         key={order.id}
                       >
-                      <div className="admin-row-top">
-                        <strong>Order form {order.id}</strong>
-                        <span>{formatPrice(order.total)}</span>
-                      </div>
-                      <p>{order.date}</p>
-                      {editingOrderId === order.id && editOrderDraft ? (
-                        <div className="edit-order">
-                          <input
-                            value={editOrderDraft.name}
-                            placeholder="Customer name"
-                            onChange={(event) =>
-                              setEditOrderDraft({ ...editOrderDraft, name: event.target.value })
-                            }
-                          />
-                          <input
-                            value={editOrderDraft.phone}
-                            placeholder="Phone"
-                            onChange={(event) =>
-                              setEditOrderDraft({ ...editOrderDraft, phone: event.target.value })
-                            }
-                          />
-                          <select
-                            value={editOrderDraft.type}
-                            onChange={(event) =>
-                              setEditOrderDraft({ ...editOrderDraft, type: event.target.value })
-                            }
-                          >
-                            <option>Delivery</option>
-                            <option>Pickup</option>
-                          </select>
-                          <input
-                            value={editOrderDraft.address}
-                            placeholder="Location/address"
-                            onChange={(event) =>
-                              setEditOrderDraft({ ...editOrderDraft, address: event.target.value })
-                            }
-                          />
-                          <input
-                            value={editOrderDraft.food}
-                            placeholder="Food selected"
-                            onChange={(event) =>
-                              setEditOrderDraft({ ...editOrderDraft, food: event.target.value })
-                            }
-                          />
-                          <input
-                            value={editOrderDraft.total}
-                            placeholder="Total"
-                            onChange={(event) =>
-                              setEditOrderDraft({ ...editOrderDraft, total: event.target.value })
-                            }
-                          />
-                          <div className="order-actions">
-                            <button type="button" onClick={() => saveEditedOrder(order.id)}>
-                              Save
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditingOrderId(null)
-                                setEditOrderDraft(null)
-                              }}
-                            >
-                              Cancel
-                            </button>
-                          </div>
+                        <div className="admin-row-top">
+                          <strong>Order form {order.id}</strong>
+                          <span>{formatPrice(order.total)}</span>
                         </div>
-                      ) : (
-                        <>
-                          <div className="admin-detail">
-                            <span>Name</span>
-                            <strong>{order.customer.name}</strong>
-                          </div>
-                          <div className="admin-detail">
-                            <span>Phone</span>
-                            <strong>{order.customer.phone}</strong>
-                          </div>
-                          <div className="admin-detail">
-                            <span>Type</span>
-                            <strong>{order.type}</strong>
-                          </div>
-                          <div className="admin-detail">
-                            <span>Location</span>
-                            <strong>{order.customer.address || 'Pickup from restaurant'}</strong>
-                          </div>
-                          <div className="admin-detail">
-                            <span>Food</span>
-                            <strong>
-                              {order.items.map((item) => `${item.quantity}x ${item.name}`).join(', ')}
-                            </strong>
-                          </div>
-                          <div className="admin-detail">
-                            <span>Status</span>
-                            <strong className={order.status === 'Complete' ? 'complete-label' : ''}>
-                              {order.status === 'Complete' ? (
-                                <>
-                                  <CheckCircle2 size={16} />
-                                  Order complete
-                                </>
-                              ) : (
-                                order.status
-                              )}
-                            </strong>
-                          </div>
-                          {order.status !== 'Complete' && (
+                        <p>{order.date}</p>
+                        {editingOrderId === order.id && editOrderDraft ? (
+                          <div className="edit-order">
+                            <input
+                              value={editOrderDraft.name}
+                              placeholder="Customer name"
+                              onChange={(event) =>
+                                setEditOrderDraft({ ...editOrderDraft, name: event.target.value })
+                              }
+                            />
+                            <input
+                              value={editOrderDraft.phone}
+                              placeholder="Phone"
+                              onChange={(event) =>
+                                setEditOrderDraft({ ...editOrderDraft, phone: event.target.value })
+                              }
+                            />
+                            <select
+                              value={editOrderDraft.type}
+                              onChange={(event) =>
+                                setEditOrderDraft({ ...editOrderDraft, type: event.target.value })
+                              }
+                            >
+                              <option>Delivery</option>
+                              <option>Pickup</option>
+                            </select>
+                            <input
+                              value={editOrderDraft.address}
+                              placeholder="Location/address"
+                              onChange={(event) =>
+                                setEditOrderDraft({ ...editOrderDraft, address: event.target.value })
+                              }
+                            />
+                            <input
+                              value={editOrderDraft.food}
+                              placeholder="Food selected"
+                              onChange={(event) =>
+                                setEditOrderDraft({ ...editOrderDraft, food: event.target.value })
+                              }
+                            />
+                            <input
+                              value={editOrderDraft.total}
+                              placeholder="Total"
+                              onChange={(event) =>
+                                setEditOrderDraft({ ...editOrderDraft, total: event.target.value })
+                              }
+                            />
                             <div className="order-actions">
-                              <button type="button" onClick={() => startEditOrder(order)}>
-                                Edit
+                              <button type="button" onClick={() => saveEditedOrder(order.id)}>
+                                Save
                               </button>
-                              <button type="button" onClick={() => markOrderComplete(order.id)}>
-                                Complete
-                              </button>
-                              <button className="danger" type="button" onClick={() => deleteOrder(order.id)}>
-                                Delete
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingOrderId(null)
+                                  setEditOrderDraft(null)
+                                }}
+                              >
+                                Cancel
                               </button>
                             </div>
-                          )}
-                        </>
-                      )}
+                          </div>
+                        ) : (
+                          <>
+                            <div className="admin-detail">
+                              <span>Name</span>
+                              <strong>{order.customer.name}</strong>
+                            </div>
+                            <div className="admin-detail">
+                              <span>Phone</span>
+                              <strong>{order.customer.phone}</strong>
+                            </div>
+                            <div className="admin-detail">
+                              <span>Type</span>
+                              <strong>{order.type}</strong>
+                            </div>
+                            <div className="admin-detail">
+                              <span>Location</span>
+                              <strong>{order.customer.address || 'Pickup from restaurant'}</strong>
+                            </div>
+                            <div className="admin-detail">
+                              <span>Food</span>
+                              <strong>
+                                {order.items.map((item) => `${item.quantity}x ${item.name}`).join(', ')}
+                              </strong>
+                            </div>
+                            <div className="admin-detail">
+                              <span>Status</span>
+                              <strong className={order.status === 'Complete' ? 'complete-label' : ''}>
+                                {order.status === 'Complete' ? (
+                                  <>
+                                    <CheckCircle2 size={16} />
+                                    Order complete
+                                  </>
+                                ) : (
+                                  order.status
+                                )}
+                              </strong>
+                            </div>
+                            {order.status !== 'Complete' && (
+                              <div className="order-actions">
+                                <button type="button" onClick={() => startEditOrder(order)}>
+                                  Edit
+                                </button>
+                                <button type="button" onClick={() => markOrderComplete(order.id)}>
+                                  Complete
+                                </button>
+                                <button className="danger" type="button" onClick={() => deleteOrder(order.id)}>
+                                  Delete
+                                </button>
+                              </div>
+                            )}
+                          </>
+                        )}
                       </article>
                     ))
                   )}
@@ -729,27 +763,27 @@ export default function App() {
               <p className="empty-cart">No items found. Try another search or category.</p>
             ) : (
               filteredItems.map((item) => (
-              <article className="food-card" key={item.id}>
-                <img src={item.image} alt={item.name} />
-                <div className="food-card-body">
-                  <div className="food-meta">
-                    <span>
-                      <Star size={15} />
-                      {item.rating}
-                    </span>
-                    <span>{item.time}</span>
+                <article className="food-card" key={item.id}>
+                  <img src={item.image} alt={item.name} />
+                  <div className="food-card-body">
+                    <div className="food-meta">
+                      <span>
+                        <Star size={15} />
+                        {item.rating}
+                      </span>
+                      <span>{item.time}</span>
+                    </div>
+                    <h3>{item.name}</h3>
+                    <p>{item.description}</p>
+                    <div className="food-card-footer">
+                      <strong>{formatPrice(item.price)}</strong>
+                      <button type="button" onClick={(event) => addToCart(item, event)}>
+                        <Plus size={17} />
+                        Add
+                      </button>
+                    </div>
                   </div>
-                  <h3>{item.name}</h3>
-                  <p>{item.description}</p>
-                  <div className="food-card-footer">
-                    <strong>{formatPrice(item.price)}</strong>
-                    <button type="button" onClick={(event) => addToCart(item, event)}>
-                      <Plus size={17} />
-                      Add
-                    </button>
-                  </div>
-                </div>
-              </article>
+                </article>
               ))
             )}
           </div>
