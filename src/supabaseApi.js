@@ -26,21 +26,21 @@ function getCacheKey(table, query) {
 async function request(table, options = {}) {
   assertSupabaseConfig()
 
-  const query = options.query || ''
+  const { query = '', forceRefresh = false, useMemoryCache = false, ...fetchOptions } = options
   const cacheKey = getCacheKey(table, query)
-  const shouldUseCache = options.cache && options.method !== 'POST' && options.method !== 'PATCH'
+  const shouldUseCache = useMemoryCache && fetchOptions.method !== 'POST' && fetchOptions.method !== 'PATCH'
   const cached = responseCache.get(cacheKey)
 
-  if (shouldUseCache && cached && Date.now() - cached.createdAt < CACHE_TTL_MS && !options.forceRefresh) {
+  if (shouldUseCache && cached && Date.now() - cached.createdAt < CACHE_TTL_MS && !forceRefresh) {
     return cached.data
   }
 
   const response = await fetch(`${SUPABASE_REST_URL}/${table}${query}`, {
-    ...options,
+    ...fetchOptions,
     headers: {
       ...baseHeaders,
-      ...(options.body ? { 'Content-Type': 'application/json' } : {}),
-      ...options.headers,
+      ...(fetchOptions.body ? { 'Content-Type': 'application/json' } : {}),
+      ...fetchOptions.headers,
     },
   })
 
@@ -81,7 +81,7 @@ export async function createOrder(order) {
 export async function getOrders({ limit = 50, forceRefresh = false } = {}) {
   return request('orders', {
     query: `?select=${ordersSelect}&order=created_at.desc&limit=${limit}`,
-    cache: true,
+    useMemoryCache: true,
     forceRefresh,
   })
 }
@@ -112,7 +112,7 @@ export async function createReservation(reservation) {
 export async function getReservations({ limit = 50, forceRefresh = false } = {}) {
   return request('reservations', {
     query: `?select=${reservationsSelect}&order=created_at.desc&limit=${limit}`,
-    cache: true,
+    useMemoryCache: true,
     forceRefresh,
   })
 }
