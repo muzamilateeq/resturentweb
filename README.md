@@ -26,6 +26,12 @@ Customer website:
 http://127.0.0.1:5173/
 ```
 
+Private dashboard:
+
+```text
+http://127.0.0.1:5173/admin-dashboard
+```
+
 ## Production Build
 
 ```powershell
@@ -72,6 +78,8 @@ Orders and bookings are saved in Supabase Postgres through the Supabase REST API
 - `orders`
 - `reservations`
 
+The website also includes a private owner dashboard at `/admin-dashboard` so you can view Supabase orders, update Pending/Done status, and review table bookings without opening Supabase every time.
+
 Run [supabase_schema.sql](./supabase_schema.sql) in **Supabase > SQL Editor** before using the website.
 
 The schema creates:
@@ -94,7 +102,7 @@ create table if not exists public.orders (
   delivery_fee numeric(10, 2) not null default 0,
   tax numeric(10, 2) not null default 0,
   total_price numeric(10, 2) not null default 0,
-  status text not null default 'New',
+  status text not null default 'Pending',
   created_at timestamptz not null default now()
 );
 

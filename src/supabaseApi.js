@@ -39,6 +39,23 @@ export async function createOrder(order) {
   return rows[0]
 }
 
+export async function getOrders() {
+  return request('orders', {
+    query: '?select=*&order=created_at.desc',
+  })
+}
+
+export async function updateOrderStatus(orderId, status) {
+  const rows = await request('orders', {
+    method: 'PATCH',
+    query: `?id=eq.${encodeURIComponent(orderId)}`,
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify({ status }),
+  })
+
+  return rows[0]
+}
+
 export async function createReservation(reservation) {
   const rows = await request('reservations', {
     method: 'POST',
@@ -47,4 +64,10 @@ export async function createReservation(reservation) {
   })
 
   return rows[0]
+}
+
+export async function getReservations() {
+  return request('reservations', {
+    query: '?select=*&order=created_at.desc',
+  })
 }

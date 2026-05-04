@@ -5,21 +5,28 @@ import {
   CheckCircle2,
   ChevronRight,
   Clock3,
+  LockKeyhole,
   MapPin,
   Menu,
   Minus,
   Phone,
   Plus,
+  RefreshCw,
+  ReceiptText,
   Search,
   ShoppingBag,
   Star,
   Truck,
   Utensils,
+  Users,
   X,
 } from 'lucide-react'
 import {
   createOrder,
   createReservation,
+  getOrders,
+  getReservations,
+  updateOrderStatus,
 } from './supabaseApi'
 
 const categories = ['All', 'Burgers', 'Chicken', 'Pizza', 'Sides', 'Dessert', 'Drinks']
@@ -108,6 +115,9 @@ const reviews = [
   },
 ]
 
+const adminPasscode = 'Muzamil@pizza01'
+const restaurantWhatsAppNumber = '923390047979'
+
 function formatPrice(value) {
   return `$${value.toFixed(2)}`
 }
@@ -125,6 +135,271 @@ function getDatabaseErrorMessage(error) {
   }
 }
 
+function formatDate(value) {
+  if (!value) {
+    return 'Not available'
+  }
+
+  return new Date(value).toLocaleString()
+}
+
+function formatOrderItems(items = []) {
+  if (!Array.isArray(items) || items.length === 0) {
+    return 'No items'
+  }
+
+  return items.map((item) => `${item.quantity} x ${item.name}`).join(', ')
+}
+
+function buildWhatsAppOrderUrl(order) {
+  const orderLines = formatOrderItems(order.order_items)
+  const addressLine = order.delivery_address ? `Address: ${order.delivery_address}` : 'Pickup order'
+  const message = [
+    `New Burger Rush Order ${order.id}`,
+    `Customer: ${order.customer_name}`,
+    `Phone: ${order.customer_phone}`,
+    `Type: ${order.type}`,
+    addressLine,
+    `Items: ${orderLines}`,
+    `Total: ${formatPrice(Number(order.total_price || 0))}`,
+  ].join('\n')
+
+  return `https://wa.me/${restaurantWhatsAppNumber}?text=${encodeURIComponent(message)}`
+}
+
+function AdminDashboard() {
+  const [passcode, setPasscode] = useState('')
+  const [isUnlocked, setIsUnlocked] = useState(false)
+  const [orders, setOrders] = useState([])
+  const [reservations, setReservations] = useState([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [updatingOrderId, setUpdatingOrderId] = useState('')
+  const [message, setMessage] = useState('')
+
+  const totalSales = orders.reduce((sum, order) => sum + Number(order.total_price || 0), 0)
+  const deliveryOrders = orders.filter((order) => order.type === 'Delivery').length
+  const pickupOrders = orders.filter((order) => order.type === 'Pickup').length
+
+  async function loadDashboardData() {
+    setIsLoading(true)
+    setMessage('')
+
+    try {
+      const [latestOrders, latestReservations] = await Promise.all([getOrders(), getReservations()])
+      setOrders(latestOrders)
+      setReservations(latestReservations)
+      setMessage('Latest Supabase data loaded.')
+    } catch (error) {
+      setMessage(`Data load nahi hua: ${getDatabaseErrorMessage(error)}`)
+      console.error(error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  function unlockDashboard(event) {
+    event.preventDefault()
+
+    if (passcode !== adminPasscode) {
+      setMessage('Wrong passcode. Please try again.')
+      return
+    }
+
+    setIsUnlocked(true)
+    setMessage('')
+  }
+
+  async function toggleOrderStatus(order) {
+    const nextStatus = order.status === 'Done' ? 'Pending' : 'Done'
+    setUpdatingOrderId(order.id)
+    setMessage('')
+
+    try {
+      const updatedOrder = await updateOrderStatus(order.id, nextStatus)
+      setOrders((current) =>
+        current.map((currentOrder) => (currentOrder.id === order.id ? updatedOrder : currentOrder)),
+      )
+      setMessage(`Order ${order.id} marked as ${nextStatus}.`)
+    } catch (error) {
+      setMessage(`Status update nahi hua: ${getDatabaseErrorMessage(error)}`)
+      console.error(error)
+    } finally {
+      setUpdatingOrderId('')
+    }
+  }
+
+  useEffect(() => {
+    if (isUnlocked) {
+      loadDashboardData()
+    }
+  }, [isUnlocked])
+
+  if (!isUnlocked) {
+    return (
+      <div className="admin-shell">
+        <form className="admin-login" onSubmit={unlockDashboard}>
+          <a className="logo" href="/" aria-label="Burger Rush home">
+            <span>
+              <Utensils size={22} />
+            </span>
+            <strong>Burger Rush</strong>
+          </a>
+          <div>
+            <span className="eyebrow">Private owner area</span>
+            <h1>Admin dashboard</h1>
+            <p>Enter your passcode to view live orders and table bookings from Supabase.</p>
+          </div>
+          <label>
+            <span>Passcode</span>
+            <input
+              type="password"
+              placeholder="Enter passcode"
+              value={passcode}
+              onChange={(event) => setPasscode(event.target.value)}
+            />
+          </label>
+          <button className="primary-button" type="submit">
+            <LockKeyhole size={18} />
+            Open dashboard
+          </button>
+          {message && <p className="form-message">{message}</p>}
+        </form>
+      </div>
+    )
+  }
+
+  return (
+    <div className="admin-shell">
+      <header className="admin-header">
+        <a className="logo" href="/" aria-label="Burger Rush home">
+          <span>
+            <Utensils size={22} />
+          </span>
+          <strong>Burger Rush</strong>
+        </a>
+        <div className="admin-actions">
+          <button type="button" onClick={loadDashboardData} disabled={isLoading}>
+            <RefreshCw size={17} />
+            {isLoading ? 'Loading' : 'Refresh'}
+          </button>
+          <a href="/">View website</a>
+        </div>
+      </header>
+
+      <main className="admin-main">
+        <section className="admin-title">
+          <span className="eyebrow">Supabase live data</span>
+          <h1>Orders dashboard</h1>
+          <p>Customer orders and reservations appear here after they are saved in Supabase.</p>
+        </section>
+
+        <section className="admin-stats" aria-label="Dashboard summary">
+          <article>
+            <ReceiptText size={22} />
+            <span>Total orders</span>
+            <strong>{orders.length}</strong>
+          </article>
+          <article>
+            <Truck size={22} />
+            <span>Delivery</span>
+            <strong>{deliveryOrders}</strong>
+          </article>
+          <article>
+            <ShoppingBag size={22} />
+            <span>Pickup</span>
+            <strong>{pickupOrders}</strong>
+          </article>
+          <article>
+            <Users size={22} />
+            <span>Reservations</span>
+            <strong>{reservations.length}</strong>
+          </article>
+          <article>
+            <CheckCircle2 size={22} />
+            <span>Total sales</span>
+            <strong>{formatPrice(totalSales)}</strong>
+          </article>
+        </section>
+
+        {message && <p className="admin-message">{message}</p>}
+
+        <section className="admin-panel">
+          <div className="admin-panel-heading">
+            <h2>Latest orders</h2>
+            <span>{orders.length} records</span>
+          </div>
+
+          <div className="admin-orders-table">
+            {orders.length === 0 ? (
+              <p className="empty-cart">No orders found yet.</p>
+            ) : (
+              <>
+                <div className="admin-table-header">
+                  <span>Customer</span>
+                  <span>Phone</span>
+                  <span>Items</span>
+                  <span>Total</span>
+                  <span>Status</span>
+                  <span>Action</span>
+                </div>
+                {orders.map((order) => (
+                  <article className="admin-table-row" key={order.id}>
+                    <div>
+                      <strong>{order.customer_name}</strong>
+                      <small>{order.id} - {order.type}</small>
+                      <small>{order.delivery_address || 'Pickup order'}</small>
+                    </div>
+                    <span>{order.customer_phone}</span>
+                    <span>{formatOrderItems(order.order_items)}</span>
+                    <strong>{formatPrice(Number(order.total_price || 0))}</strong>
+                    <span className={order.status === 'Done' ? 'status-pill done' : 'status-pill'}>
+                      {order.status}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => toggleOrderStatus(order)}
+                      disabled={updatingOrderId === order.id}
+                    >
+                      {updatingOrderId === order.id
+                        ? 'Saving'
+                        : order.status === 'Done'
+                          ? 'Mark pending'
+                          : 'Mark done'}
+                    </button>
+                  </article>
+                ))}
+              </>
+            )}
+          </div>
+        </section>
+
+        <section className="admin-panel">
+          <div className="admin-panel-heading">
+            <h2>Table bookings</h2>
+            <span>{reservations.length} records</span>
+          </div>
+
+          <div className="reservation-table">
+            {reservations.length === 0 ? (
+              <p className="empty-cart">No reservations found yet.</p>
+            ) : (
+              reservations.map((booking) => (
+                <article className="reservation-row" key={booking.id}>
+                  <strong>{booking.name}</strong>
+                  <span>{booking.date}</span>
+                  <span>{booking.time}</span>
+                  <span>{booking.guests} guests</span>
+                  <span>{formatDate(booking.created_at)}</span>
+                </article>
+              ))
+            )}
+          </div>
+        </section>
+      </main>
+    </div>
+  )
+}
+
 export default function App() {
   const cartIconRef = useRef(null)
   const [activeCategory, setActiveCategory] = useState('All')
@@ -137,6 +412,8 @@ export default function App() {
   const [reservationMessage, setReservationMessage] = useState('')
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [flyingItem, setFlyingItem] = useState(null)
+  const [isSubmittingOrder, setIsSubmittingOrder] = useState(false)
+  const [toastMessage, setToastMessage] = useState('')
 
   const filteredItems = useMemo(() => {
     return menuItems.filter((item) => {
@@ -154,6 +431,15 @@ export default function App() {
   const tax = subtotal * 0.08
   const total = subtotal + deliveryFee + tax
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0)
+
+  useEffect(() => {
+    if (!toastMessage) {
+      return undefined
+    }
+
+    const timerId = window.setTimeout(() => setToastMessage(''), 3600)
+    return () => window.clearTimeout(timerId)
+  }, [toastMessage])
 
   function addToCart(item, event) {
     const image = event.currentTarget.closest('.food-card')?.querySelector('img')
@@ -198,13 +484,17 @@ export default function App() {
   async function placeOrder(event) {
     event.preventDefault()
 
+    if (isSubmittingOrder) {
+      return
+    }
+
     if (!cart.length) {
       setConfirmation('Add food to your cart before placing an order.')
       return
     }
 
-    if (!customer.name || !customer.phone || (orderType === 'Delivery' && !customer.address)) {
-      setConfirmation('Please add your name, phone, and delivery address before checkout.')
+    if (!customer.name.trim() || !customer.phone.trim() || (orderType === 'Delivery' && !customer.address.trim())) {
+      setConfirmation('Please fill all required fields before checkout.')
       return
     }
 
@@ -213,9 +503,9 @@ export default function App() {
       id: orderId,
       date: new Date().toLocaleString(),
       type: orderType,
-      customer_name: customer.name,
-      customer_phone: customer.phone,
-      delivery_address: orderType === 'Delivery' ? customer.address : '',
+      customer_name: customer.name.trim(),
+      customer_phone: customer.phone.trim(),
+      delivery_address: orderType === 'Delivery' ? customer.address.trim() : '',
       order_items: cart.map((item) => ({
         name: item.name,
         quantity: item.quantity,
@@ -225,17 +515,22 @@ export default function App() {
       delivery_fee: deliveryFee,
       tax,
       total_price: total,
-      status: 'New',
+      status: 'Pending',
     }
 
     try {
-      await createOrder(newOrder)
+      setIsSubmittingOrder(true)
+      const savedOrder = await createOrder(newOrder)
+      setToastMessage('Order Placed Successfully!')
       setConfirmation(`Order ${orderId} confirmed. Estimated ${orderType.toLowerCase()} time is 30 minutes.`)
       setCart([])
       setCustomer({ name: '', phone: '', address: '' })
+      window.open(buildWhatsAppOrderUrl(savedOrder), '_blank', 'noopener,noreferrer')
     } catch (error) {
       setConfirmation(`Order save nahi hua: ${getDatabaseErrorMessage(error)}`)
       console.error(error)
+    } finally {
+      setIsSubmittingOrder(false)
     }
   }
 
@@ -267,6 +562,15 @@ export default function App() {
 
   function finishFlyAnimation() {
     setFlyingItem(null)
+  }
+
+  if (
+    window.location.pathname === '/admin-dashboard' ||
+    window.location.pathname === '/admin' ||
+    window.location.hash === '#admin-dashboard' ||
+    window.location.hash === '#admin'
+  ) {
+    return <AdminDashboard />
   }
 
   return (
@@ -511,8 +815,8 @@ export default function App() {
               </div>
             </div>
 
-            <button className="checkout-button" type="submit">
-              Place order
+            <button className="checkout-button" type="submit" disabled={isSubmittingOrder}>
+              {isSubmittingOrder ? 'Saving order...' : 'Place order'}
             </button>
             {confirmation && <p className="form-message">{confirmation}</p>}
           </form>
@@ -625,6 +929,13 @@ export default function App() {
           aria-hidden="true"
         >
           <img src={flyingItem.image} alt="" />
+        </div>
+      )}
+
+      {toastMessage && (
+        <div className="toast-notification" role="status" aria-live="polite">
+          <CheckCircle2 size={18} />
+          {toastMessage}
         </div>
       )}
     </div>
