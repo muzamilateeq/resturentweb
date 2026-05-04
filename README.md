@@ -76,7 +76,7 @@ Run [supabase_schema.sql](./supabase_schema.sql) in **Supabase > SQL Editor** be
 
 The schema creates:
 
-- `orders`: customer name/phone/address in `customer`, selected food in `items`, order type, total, status, and timestamps
+- `orders`: customer name, phone, address, selected food, subtotal, delivery fee, tax, total price, status, and timestamps in clear columns
 - `reservations`: booking name, date, time, guests, and timestamps
 
 You can also copy and run this SQL manually:
@@ -86,9 +86,14 @@ create table if not exists public.orders (
   id text primary key,
   date text not null,
   type text not null,
-  customer jsonb not null,
-  items jsonb not null,
-  total numeric not null,
+  customer_name text not null,
+  customer_phone text not null,
+  delivery_address text,
+  order_items jsonb not null default '[]'::jsonb,
+  subtotal numeric(10, 2) not null default 0,
+  delivery_fee numeric(10, 2) not null default 0,
+  tax numeric(10, 2) not null default 0,
+  total_price numeric(10, 2) not null default 0,
   status text not null default 'New',
   created_at timestamptz not null default now()
 );

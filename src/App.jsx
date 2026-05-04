@@ -213,13 +213,18 @@ export default function App() {
       id: orderId,
       date: new Date().toLocaleString(),
       type: orderType,
-      customer: { ...customer },
-      items: cart.map((item) => ({
+      customer_name: customer.name,
+      customer_phone: customer.phone,
+      delivery_address: orderType === 'Delivery' ? customer.address : '',
+      order_items: cart.map((item) => ({
         name: item.name,
         quantity: item.quantity,
         price: item.price,
       })),
-      total,
+      subtotal,
+      delivery_fee: deliveryFee,
+      tax,
+      total_price: total,
       status: 'New',
     }
 
