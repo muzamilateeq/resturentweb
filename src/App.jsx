@@ -179,7 +179,8 @@ function buildWhatsAppOrderUrl(order) {
 }
 
 export default function App() {
-  const cartIconRef = useRef(null)
+  const desktopCartRef = useRef(null)
+  const mobileCartRef = useRef(null)
   const [activeCategory, setActiveCategory] = useState('All')
   const [searchTerm, setSearchTerm] = useState('')
   const [cart, setCart] = useState([])
@@ -221,7 +222,8 @@ export default function App() {
 
   function addToCart(item, event) {
     const image = event.currentTarget.closest('.food-card')?.querySelector('img')
-    const cartIcon = cartIconRef.current
+    const isMobileViewport = window.matchMedia('(max-width: 680px)').matches
+    const cartIcon = isMobileViewport ? mobileCartRef.current : desktopCartRef.current
 
     if (image && cartIcon) {
       const imageRect = image.getBoundingClientRect()
@@ -388,11 +390,16 @@ export default function App() {
           <a href="#contact">Contact</a>
         </nav>
 
-        <a className="header-cart" href="#order" aria-label={`${cartCount} items in cart`} ref={cartIconRef}>
+        <a className="header-cart desktop-cart" href="#order" aria-label={`${cartCount} items in cart`} ref={desktopCartRef}>
           <ShoppingBag size={19} />
           <span>{cartCount}</span>
         </a>
       </header>
+
+      <a className="mobile-floating-cart" href="#order" aria-label={`${cartCount} items in cart`} ref={mobileCartRef}>
+        <ShoppingBag size={20} />
+        <span>{cartCount}</span>
+      </a>
 
       <main>
         <section className="hero" id="home">

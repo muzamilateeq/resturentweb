@@ -157,6 +157,48 @@ img {
   font-weight: 800;
 }
 
+.mobile-floating-cart {
+  position: fixed;
+  right: 18px;
+  bottom: calc(18px + env(safe-area-inset-bottom));
+  z-index: 90;
+  display: none;
+  width: 58px;
+  min-width: 58px;
+  height: 58px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ef3b2d, #c51f17);
+  color: #ffffff;
+  box-shadow:
+    0 16px 38px rgba(197, 31, 23, 0.34),
+    0 0 0 7px rgba(255, 248, 237, 0.92);
+  transition:
+    transform 180ms ease,
+    background 180ms ease;
+}
+
+.mobile-floating-cart:hover {
+  transform: translateY(-2px);
+}
+
+.mobile-floating-cart span {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: 2px solid #fff8ed;
+  border-radius: 999px;
+  background: #ffb000;
+  color: #2b2118;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
 .nav-toggle {
   display: none;
   width: 44px;
@@ -1258,32 +1300,12 @@ p {
     order: 3;
   }
 
-  .site-header .header-cart {
-    position: fixed !important;
-    top: auto !important;
-    right: 16px !important;
-    bottom: calc(18px + env(safe-area-inset-bottom)) !important;
-    left: auto !important;
-    z-index: 80;
-    width: 58px !important;
-    min-width: 58px !important;
-    height: 58px !important;
-    border-radius: 999px !important;
-    box-shadow:
-      0 16px 38px rgba(197, 31, 23, 0.32),
-      0 0 0 7px rgba(255, 248, 237, 0.9);
+  .site-header .desktop-cart {
+    display: none;
   }
 
-  .site-header .header-cart:hover {
-    transform: translateY(-2px);
-  }
-
-  .site-header .header-cart span {
-    top: -5px;
-    right: -5px;
-    min-width: 24px;
-    height: 24px;
-    border: 2px solid #fff8ed;
+  .mobile-floating-cart {
+    display: flex;
   }
 
   .site-nav {
@@ -1568,7 +1590,6 @@ p {
     font-size: 0.94rem;
   }
 
-  .header-cart,
   .nav-toggle {
     width: 42px;
     min-width: 42px;
@@ -1580,12 +1601,12 @@ p {
     height: 42px;
   }
 
-  .site-header .header-cart {
-    right: 14px !important;
-    bottom: calc(16px + env(safe-area-inset-bottom)) !important;
-    width: 54px !important;
-    min-width: 54px !important;
-    height: 54px !important;
+  .mobile-floating-cart {
+    right: 14px;
+    bottom: calc(16px + env(safe-area-inset-bottom));
+    width: 54px;
+    min-width: 54px;
+    height: 54px;
   }
 
   .logo {

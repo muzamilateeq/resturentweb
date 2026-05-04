@@ -1,4 +1,4 @@
-const CACHE_NAME = 'burger-rush-static-v1'
+const CACHE_NAME = 'burger-rush-static-v2'
 const STATIC_ASSET_PATTERN = /\.(?:js|css|svg|png|jpg|jpeg|webp|avif|ico)$/i
 
 self.addEventListener('install', () => {
