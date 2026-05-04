@@ -1,5 +1,5 @@
-const SUPABASE_REST_URL = import.meta.env.VITE_SUPABASE_REST_URL
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
+const SUPABASE_REST_URL = normalizeSupabaseRestUrl(import.meta.env.VITE_SUPABASE_REST_URL)
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim()
 const CACHE_TTL_MS = 30_000
 
 const ordersSelect =
@@ -8,9 +8,36 @@ const reservationsSelect = 'id,date_created,name,date,time,guests,created_at'
 
 const responseCache = new Map()
 
+function normalizeSupabaseRestUrl(value = '') {
+  const cleanedValue = value.trim().replace(/^\[|\]$/g, '').replace(/^['"]|['"]$/g, '')
+
+  if (!cleanedValue) {
+    return ''
+  }
+
+  try {
+    const url = new URL(cleanedValue)
+    const restIndex = url.pathname.indexOf('/rest/v1')
+
+    url.pathname = restIndex >= 0 ? url.pathname.slice(0, restIndex + '/rest/v1'.length) : '/rest/v1'
+    url.search = ''
+    url.hash = ''
+
+    return url.toString().replace(/\/$/, '')
+  } catch {
+    return cleanedValue.replace(/\/$/, '')
+  }
+}
+
 function assertSupabaseConfig() {
   if (!SUPABASE_REST_URL || !SUPABASE_ANON_KEY) {
     throw new Error('Missing Supabase environment variables. Set VITE_SUPABASE_REST_URL and VITE_SUPABASE_ANON_KEY.')
+  }
+
+  if (!SUPABASE_REST_URL.includes('.supabase.co/rest/v1')) {
+    throw new Error(
+      'Invalid Supabase REST URL. Use the format https://your-project.supabase.co/rest/v1 without brackets.',
+    )
   }
 }
 
@@ -46,7 +73,7 @@ async function request(table, options = {}) {
 
   if (!response.ok) {
     const message = await response.text()
-    throw new Error(message || `Supabase request failed with status ${response.status}`)
+    throw new Error(getSupabaseErrorMessage(message, response.status))
   }
 
   if (response.status === 204) {
@@ -60,6 +87,19 @@ async function request(table, options = {}) {
   }
 
   return data
+}
+
+function getSupabaseErrorMessage(message, status) {
+  try {
+    const details = JSON.parse(message)
+    return details.message || details.hint || `Supabase request failed with status ${status}`
+  } catch {
+    if (status === 404) {
+      return 'Supabase table or REST endpoint was not found. Check VITE_SUPABASE_REST_URL and run supabase_schema.sql.'
+    }
+
+    return message || `Supabase request failed with status ${status}`
+  }
 }
 
 function clearDashboardCache() {
