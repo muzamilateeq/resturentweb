@@ -13,6 +13,7 @@ import {
 import { getOrders, getReservations, updateOrderStatus } from './supabaseApi'
 
 const adminPasscodeHash = import.meta.env.VITE_ADMIN_PASSCODE_HASH
+const adminPasscode = import.meta.env.VITE_ADMIN_PASSCODE
 
 function formatPrice(value) {
   return `$${value.toFixed(2)}`
@@ -97,14 +98,20 @@ export default function AdminDashboard() {
   async function unlockDashboard(event) {
     event.preventDefault()
 
-    if (!adminPasscodeHash) {
+    if (!adminPasscodeHash && !adminPasscode) {
       setMessage('Admin passcode is not configured. Add VITE_ADMIN_PASSCODE_HASH in your environment variables.')
+      return
+    }
+
+    if (adminPasscode && passcode === adminPasscode) {
+      setIsUnlocked(true)
+      setMessage('')
       return
     }
 
     const enteredPasscodeHash = await hashPasscode(passcode)
 
-    if (enteredPasscodeHash !== adminPasscodeHash.toLowerCase()) {
+    if (enteredPasscodeHash !== adminPasscodeHash?.toLowerCase()) {
       setMessage('Wrong passcode. Please try again.')
       return
     }

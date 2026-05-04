@@ -1236,9 +1236,13 @@ p {
 }
 
 @media (max-width: 680px) {
+  body {
+    font-size: 0.95rem;
+  }
+
   .site-header {
     padding: 0 14px;
-    min-height: 66px;
+    min-height: 62px;
   }
 
   .site-nav {
@@ -1256,24 +1260,38 @@ p {
   .section,
   .order-section,
   .reservation-section {
-    padding: 42px 14px;
+    padding: 30px 14px;
   }
 
   .hero {
     min-height: auto;
+    gap: 22px;
+    align-items: start;
   }
 
   h1 {
-    font-size: 2.7rem;
-    line-height: 1;
+    margin-bottom: 14px;
+    font-size: clamp(2.15rem, 12vw, 2.65rem);
+    line-height: 1.02;
   }
 
   h2 {
-    font-size: 2.15rem;
+    font-size: clamp(1.65rem, 9vw, 2.05rem);
+    line-height: 1.08;
   }
 
   p {
-    line-height: 1.62;
+    line-height: 1.55;
+  }
+
+  .hero-copy p {
+    margin-bottom: 20px;
+    font-size: 1rem;
+  }
+
+  .eyebrow {
+    margin-bottom: 8px;
+    font-size: 0.72rem;
   }
 
   .hero-actions,
@@ -1296,6 +1314,8 @@ p {
   .category-list button {
     min-width: max-content;
     scroll-snap-align: start;
+    min-height: 40px;
+    padding: 0 12px;
   }
 
   .trust-strip,
@@ -1312,7 +1332,12 @@ p {
   }
 
   .trust-strip {
-    padding: 0 14px 30px;
+    gap: 10px;
+    padding: 0 14px 24px;
+  }
+
+  .trust-strip div {
+    padding: 14px;
   }
 
   .trust-strip div,
@@ -1326,7 +1351,32 @@ p {
 
   .hero-card img,
   .food-card img {
-    aspect-ratio: 1.35 / 1;
+    aspect-ratio: 1.55 / 1;
+  }
+
+  .hero-card div {
+    padding: 16px;
+  }
+
+  .hero-card strong {
+    font-size: 1.2rem;
+  }
+
+  .food-card {
+    box-shadow: 0 12px 34px rgba(239, 59, 45, 0.08);
+  }
+
+  .food-card-body {
+    padding: 15px;
+  }
+
+  .food-meta {
+    margin-bottom: 8px;
+    font-size: 0.8rem;
+  }
+
+  .food-card h3 {
+    font-size: 1.02rem;
   }
 
   .food-card:hover {
@@ -1340,6 +1390,16 @@ p {
   .food-card p,
   .review-card p {
     min-height: auto;
+  }
+
+  .food-card p {
+    margin-bottom: 12px;
+    font-size: 0.92rem;
+    line-height: 1.45;
+  }
+
+  .food-card-footer strong {
+    font-size: 1.08rem;
   }
 
   .cart-row {
@@ -1372,7 +1432,8 @@ p {
   }
 
   .contact-section {
-    margin: 0 14px 36px;
+    margin: 0 14px 28px;
+    padding: 18px;
   }
 
   .admin-header {
@@ -1388,13 +1449,44 @@ p {
   }
 
   .admin-main {
-    padding: 34px 14px 48px;
+    padding: 26px 14px 42px;
+  }
+
+  .admin-login {
+    width: min(100% - 24px, 430px);
+    margin: 24px auto;
+  }
+
+  .admin-login h1,
+  .admin-title h1 {
+    font-size: clamp(2rem, 12vw, 2.8rem);
   }
 
   .admin-stats,
   .admin-table-row,
   .reservation-row {
     grid-template-columns: 1fr;
+  }
+
+  .admin-stats {
+    gap: 10px;
+  }
+
+  .admin-stats article {
+    padding: 14px;
+  }
+
+  .admin-stats strong {
+    font-size: 1.35rem;
+  }
+
+  .admin-table-row {
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .admin-table-row button {
+    width: 100%;
   }
 
   .toast-notification {
@@ -1406,7 +1498,7 @@ p {
 
   .admin-login,
   .admin-panel {
-    padding: 16px;
+    padding: 14px;
   }
 
   .admin-panel-heading {
@@ -1420,19 +1512,19 @@ p {
   .section,
   .order-section,
   .reservation-section {
-    padding: 34px 12px;
+    padding: 24px 12px;
   }
 
   h1 {
-    font-size: 2.35rem;
+    font-size: clamp(1.9rem, 11vw, 2.25rem);
   }
 
   h2 {
-    font-size: 1.9rem;
+    font-size: clamp(1.45rem, 8vw, 1.75rem);
   }
 
   .hero-copy p {
-    font-size: 1rem;
+    font-size: 0.94rem;
   }
 
   .header-cart,
@@ -1446,12 +1538,12 @@ p {
   }
 
   .logo span {
-    width: 38px;
-    height: 38px;
+    width: 34px;
+    height: 34px;
   }
 
   .logo strong {
-    max-width: 108px;
+    max-width: 96px;
     line-height: 1.05;
   }
 
@@ -1465,14 +1557,62 @@ p {
   .food-card-footer button,
   .category-list button,
   .order-type button {
-    min-height: 44px;
+    min-height: 40px;
+    font-size: 0.92rem;
   }
 
   .food-card-body,
   .checkout-card,
   .reservation-card,
   .review-card {
-    padding: 16px;
+    padding: 13px;
+  }
+
+  .hero-card div {
+    padding: 13px;
+  }
+
+  .hero-card img,
+  .food-card img {
+    aspect-ratio: 1.75 / 1;
+  }
+
+  .food-card h3 {
+    margin-bottom: 6px;
+    font-size: 0.98rem;
+  }
+
+  .food-card p {
+    font-size: 0.88rem;
+  }
+
+  .customer-fields input,
+  .reservation-grid input,
+  .reservation-grid select {
+    min-height: 42px;
+  }
+
+  .summary .total {
+    font-size: 1.08rem;
+  }
+
+  .admin-login {
+    width: calc(100% - 20px);
+    padding: 14px;
+  }
+
+  .admin-login input {
+    min-height: 44px;
+  }
+
+  .admin-panel-heading h2 {
+    font-size: 1.25rem;
+  }
+
+  .admin-message,
+  .form-message {
+    font-size: 0.9rem;
+    line-height: 1.45;
   }
 
   .food-card-footer {
