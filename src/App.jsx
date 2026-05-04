@@ -124,7 +124,7 @@ function formatPrice(value) {
 
 function getDatabaseErrorMessage(error) {
   if (!error?.message) {
-    return 'Database error. Supabase table/policy check karein.'
+    return 'Database error. Please check your Supabase table and policies.'
   }
 
   try {
@@ -190,7 +190,7 @@ function AdminDashboard() {
       setReservations(latestReservations)
       setMessage('Latest Supabase data loaded.')
     } catch (error) {
-      setMessage(`Data load nahi hua: ${getDatabaseErrorMessage(error)}`)
+      setMessage(`Unable to load dashboard data: ${getDatabaseErrorMessage(error)}`)
       console.error(error)
     } finally {
       setIsLoading(false)
@@ -221,7 +221,7 @@ function AdminDashboard() {
       )
       setMessage(`Order ${order.id} marked as ${nextStatus}.`)
     } catch (error) {
-      setMessage(`Status update nahi hua: ${getDatabaseErrorMessage(error)}`)
+      setMessage(`Unable to update order status: ${getDatabaseErrorMessage(error)}`)
       console.error(error)
     } finally {
       setUpdatingOrderId('')
@@ -527,7 +527,7 @@ export default function App() {
       setCustomer({ name: '', phone: '', address: '' })
       window.open(buildWhatsAppOrderUrl(savedOrder), '_blank', 'noopener,noreferrer')
     } catch (error) {
-      setConfirmation(`Order save nahi hua: ${getDatabaseErrorMessage(error)}`)
+      setConfirmation(`Unable to save order: ${getDatabaseErrorMessage(error)}`)
       console.error(error)
     } finally {
       setIsSubmittingOrder(false)
@@ -555,7 +555,7 @@ export default function App() {
       )
       setReservation({ name: '', date: '', time: '', guests: '2' })
     } catch (error) {
-      setReservationMessage(`Booking save nahi hui: ${getDatabaseErrorMessage(error)}`)
+      setReservationMessage(`Unable to save booking: ${getDatabaseErrorMessage(error)}`)
       console.error(error)
     }
   }
