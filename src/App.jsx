@@ -18,18 +18,21 @@ import {
   Utensils,
   X,
 } from 'lucide-react'
+import {
+  createOrder,
+  createReservation,
+  deleteOrderRow,
+  deleteReservationRow,
+  getOrders,
+  getReservations,
+  updateOrder,
+} from './supabaseApi'
 
 const categories = ['All', 'Burgers', 'Chicken', 'Pizza', 'Sides', 'Dessert', 'Drinks']
 
 const OWNER_PASSCODE = '1234'
 
-const storageKeys = {
-  legacyOrders: 'flameForkOrders',
-  legacyReservations: 'flameForkReservations',
-  owner: 'burgerRushOwner',
-  orders: 'burgerRushOrders',
-  reservations: 'burgerRushReservations',
-}
+const OWNER_STORAGE_KEY = 'burgerRushOwner'
 
 const menuItems = [
   {
@@ -129,20 +132,6 @@ function downloadFile(filename, content) {
   URL.revokeObjectURL(url)
 }
 
-function readStoredList(primaryKey, fallbackKey) {
-  const stored = localStorage.getItem(primaryKey) || localStorage.getItem(fallbackKey)
-
-  if (!stored) {
-    return []
-  }
-
-  try {
-    return JSON.parse(stored)
-  } catch {
-    return []
-  }
-}
-
 export default function App() {
   const [isOwnerPage, setIsOwnerPage] = useState(
     () => window.location.pathname.endsWith('/owner') || window.location.hash === '#owner',
@@ -159,16 +148,13 @@ export default function App() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [ownerPasscode, setOwnerPasscode] = useState('')
   const [ownerError, setOwnerError] = useState('')
-  const [isOwner, setIsOwner] = useState(() => localStorage.getItem(storageKeys.owner) === 'true')
+  const [dataError, setDataError] = useState('')
+  const [isOwner, setIsOwner] = useState(() => localStorage.getItem(OWNER_STORAGE_KEY) === 'true')
   const [flyingItem, setFlyingItem] = useState(null)
   const [editingOrderId, setEditingOrderId] = useState(null)
   const [editOrderDraft, setEditOrderDraft] = useState(null)
-  const [savedOrders, setSavedOrders] = useState(() => {
-    return readStoredList(storageKeys.orders, storageKeys.legacyOrders)
-  })
-  const [savedReservations, setSavedReservations] = useState(() => {
-    return readStoredList(storageKeys.reservations, storageKeys.legacyReservations)
-  })
+  const [savedOrders, setSavedOrders] = useState([])
+  const [savedReservations, setSavedReservations] = useState([])
 
   const filteredItems = useMemo(() => {
     return menuItems.filter((item) => {
@@ -191,12 +177,8 @@ export default function App() {
   const ownerRevenue = savedOrders.reduce((sum, order) => sum + order.total, 0)
 
   useEffect(() => {
-    localStorage.setItem(storageKeys.orders, JSON.stringify(savedOrders))
-  }, [savedOrders])
-
-  useEffect(() => {
-    localStorage.setItem(storageKeys.reservations, JSON.stringify(savedReservations))
-  }, [savedReservations])
+    refreshOwnerData()
+  }, [])
 
   useEffect(() => {
     function syncOwnerRoute() {
@@ -212,7 +194,7 @@ export default function App() {
 
     if (ownerPasscode === OWNER_PASSCODE) {
       setIsOwner(true)
-      localStorage.setItem(storageKeys.owner, 'true')
+      localStorage.setItem(OWNER_STORAGE_KEY, 'true')
       setOwnerPasscode('')
       setOwnerError('')
     } else {
@@ -222,7 +204,20 @@ export default function App() {
 
   function ownerLogout() {
     setIsOwner(false)
-    localStorage.removeItem(storageKeys.owner)
+    localStorage.removeItem(OWNER_STORAGE_KEY)
+  }
+
+  async function refreshOwnerData() {
+    try {
+      const [orders, reservations] = await Promise.all([getOrders(), getReservations()])
+
+      setSavedOrders(orders)
+      setSavedReservations(reservations)
+      setDataError('')
+    } catch (error) {
+      setDataError('Database data load nahi ho saka. Supabase tables/policies check karein.')
+      console.error(error)
+    }
   }
 
   function exportOrders() {
@@ -244,22 +239,38 @@ export default function App() {
     downloadFile('restaurant-orders.csv', csv)
   }
 
-  function deleteOrder(orderId) {
-    setSavedOrders((current) => current.filter((order) => order.id !== orderId))
-    if (editingOrderId === orderId) {
-      setEditingOrderId(null)
-      setEditOrderDraft(null)
+  async function deleteOrder(orderId) {
+    try {
+      await deleteOrderRow(orderId)
+      setSavedOrders((current) => current.filter((order) => order.id !== orderId))
+      if (editingOrderId === orderId) {
+        setEditingOrderId(null)
+        setEditOrderDraft(null)
+      }
+    } catch (error) {
+      setDataError('Order delete nahi ho saka. Supabase policy check karein.')
+      console.error(error)
     }
   }
 
-  function markOrderComplete(orderId) {
-    setSavedOrders((current) =>
-      current.map((order) => (order.id === orderId ? { ...order, status: 'Complete' } : order)),
-    )
+  async function markOrderComplete(orderId) {
+    try {
+      const updatedOrder = await updateOrder(orderId, { status: 'Complete' })
+      setSavedOrders((current) => current.map((order) => (order.id === orderId ? updatedOrder : order)))
+    } catch (error) {
+      setDataError('Order complete mark nahi ho saka. Supabase policy check karein.')
+      console.error(error)
+    }
   }
 
-  function deleteReservation(bookingId) {
-    setSavedReservations((current) => current.filter((booking) => booking.id !== bookingId))
+  async function deleteReservation(bookingId) {
+    try {
+      await deleteReservationRow(bookingId)
+      setSavedReservations((current) => current.filter((booking) => booking.id !== bookingId))
+    } catch (error) {
+      setDataError('Booking delete nahi ho saki. Supabase policy check karein.')
+      console.error(error)
+    }
   }
 
   function startEditOrder(order) {
@@ -274,32 +285,33 @@ export default function App() {
     })
   }
 
-  function saveEditedOrder(orderId) {
+  async function saveEditedOrder(orderId) {
     const editedItems = editOrderDraft.food
       .split(',')
       .map((item) => item.trim())
       .filter(Boolean)
       .map((item) => ({ name: item, quantity: 1, price: 0 }))
 
-    setSavedOrders((current) =>
-      current.map((order) =>
-        order.id === orderId
-          ? {
-              ...order,
-              type: editOrderDraft.type,
-              customer: {
-                name: editOrderDraft.name,
-                phone: editOrderDraft.phone,
-                address: editOrderDraft.address,
-              },
-              items: editedItems.length ? editedItems : order.items,
-              total: Number(editOrderDraft.total) || order.total,
-            }
-          : order,
-      ),
-    )
-    setEditingOrderId(null)
-    setEditOrderDraft(null)
+    try {
+      const currentOrder = savedOrders.find((order) => order.id === orderId)
+      const updatedOrder = await updateOrder(orderId, {
+        customer: {
+          name: editOrderDraft.name,
+          phone: editOrderDraft.phone,
+          address: editOrderDraft.address,
+        },
+        items: editedItems.length ? editedItems : currentOrder.items,
+        total: Number(editOrderDraft.total) || currentOrder.total,
+        type: editOrderDraft.type,
+      })
+
+      setSavedOrders((current) => current.map((order) => (order.id === orderId ? updatedOrder : order)))
+      setEditingOrderId(null)
+      setEditOrderDraft(null)
+    } catch (error) {
+      setDataError('Order update nahi ho saka. Supabase policy check karein.')
+      console.error(error)
+    }
   }
 
   function addToCart(item, event) {
@@ -342,7 +354,7 @@ export default function App() {
     )
   }
 
-  function placeOrder(event) {
+  async function placeOrder(event) {
     event.preventDefault()
 
     if (!cart.length) {
@@ -370,13 +382,19 @@ export default function App() {
       status: 'New',
     }
 
-    setSavedOrders((current) => [newOrder, ...current])
-    setConfirmation(`Order ${orderId} confirmed. Estimated ${orderType.toLowerCase()} time is 30 minutes.`)
-    setCart([])
-    setCustomer({ name: '', phone: '', address: '' })
+    try {
+      const savedOrder = await createOrder(newOrder)
+      setSavedOrders((current) => [savedOrder, ...current])
+      setConfirmation(`Order ${orderId} confirmed. Estimated ${orderType.toLowerCase()} time is 30 minutes.`)
+      setCart([])
+      setCustomer({ name: '', phone: '', address: '' })
+    } catch (error) {
+      setConfirmation('Order database mein save nahi ho saka. Supabase table/policy check karein.')
+      console.error(error)
+    }
   }
 
-  function reserveTable(event) {
+  async function reserveTable(event) {
     event.preventDefault()
 
     if (!reservation.name || !reservation.date || !reservation.time) {
@@ -386,15 +404,21 @@ export default function App() {
 
     const newReservation = {
       id: `RS-${Math.floor(1000 + Math.random() * 9000)}`,
-      dateCreated: new Date().toLocaleString(),
+      date_created: new Date().toLocaleString(),
       ...reservation,
     }
 
-    setSavedReservations((current) => [newReservation, ...current])
-    setReservationMessage(
-      `Table reserved for ${reservation.guests} guests on ${reservation.date} at ${reservation.time}.`,
-    )
-    setReservation({ name: '', date: '', time: '', guests: '2' })
+    try {
+      const savedReservation = await createReservation(newReservation)
+      setSavedReservations((current) => [savedReservation, ...current])
+      setReservationMessage(
+        `Table reserved for ${reservation.guests} guests on ${reservation.date} at ${reservation.time}.`,
+      )
+      setReservation({ name: '', date: '', time: '', guests: '2' })
+    } catch (error) {
+      setReservationMessage('Booking database mein save nahi ho saki. Supabase table/policy check karein.')
+      console.error(error)
+    }
   }
 
   function finishFlyAnimation() {
@@ -431,6 +455,8 @@ export default function App() {
             </form>
           ) : (
             <>
+              {dataError && <p className="form-message">{dataError}</p>}
+
               <div className="owner-stats">
                 <article>
                   <span>Active orders</span>
@@ -456,6 +482,9 @@ export default function App() {
                   <span>{savedOrders.length}</span>
                   <button className="logout-button" type="button" onClick={exportOrders}>
                     Download
+                  </button>
+                  <button className="logout-button" type="button" onClick={refreshOwnerData}>
+                    Refresh
                   </button>
                   <button className="logout-button" type="button" onClick={ownerLogout}>
                     Lock
@@ -609,7 +638,7 @@ export default function App() {
                           <strong>Booking form {booking.id}</strong>
                           <ReceiptText size={18} />
                         </div>
-                        <p>{booking.dateCreated}</p>
+                      <p>{booking.date_created}</p>
                         <div className="admin-detail">
                           <span>Name</span>
                           <strong>{booking.name}</strong>

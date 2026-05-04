@@ -92,4 +92,72 @@ Folder: /docs
 
 ## Note
 
-This project stores demo orders and bookings in browser `localStorage`. For a real public restaurant website, connect the checkout and owner dashboard to a secure backend database and authentication system.
+Orders and bookings are saved in Supabase Postgres through the Supabase REST API.
+
+## Supabase Tables
+
+Run this SQL in **Supabase > SQL Editor** before using the website:
+
+```sql
+create table if not exists public.orders (
+  id text primary key,
+  date text not null,
+  type text not null,
+  customer jsonb not null,
+  items jsonb not null,
+  total numeric not null,
+  status text not null default 'New',
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.reservations (
+  id text primary key,
+  date_created text not null,
+  name text not null,
+  date text not null,
+  time text not null,
+  guests text not null,
+  created_at timestamptz not null default now()
+);
+
+alter table public.orders enable row level security;
+alter table public.reservations enable row level security;
+
+create policy "Allow public order reads"
+on public.orders for select
+to anon
+using (true);
+
+create policy "Allow public order inserts"
+on public.orders for insert
+to anon
+with check (true);
+
+create policy "Allow public order updates"
+on public.orders for update
+to anon
+using (true)
+with check (true);
+
+create policy "Allow public order deletes"
+on public.orders for delete
+to anon
+using (true);
+
+create policy "Allow public reservation reads"
+on public.reservations for select
+to anon
+using (true);
+
+create policy "Allow public reservation inserts"
+on public.reservations for insert
+to anon
+with check (true);
+
+create policy "Allow public reservation deletes"
+on public.reservations for delete
+to anon
+using (true);
+```
+
+For a production restaurant, replace the demo owner passcode and public update/delete policies with secure Supabase Auth and server-side authorization.
