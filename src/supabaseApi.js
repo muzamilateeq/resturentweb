@@ -80,7 +80,8 @@ async function request(table, options = {}) {
     return null
   }
 
-  const data = await response.json()
+  const responseText = await response.text()
+  const data = responseText ? JSON.parse(responseText) : null
 
   if (shouldUseCache) {
     responseCache.set(cacheKey, { data, createdAt: Date.now() })
@@ -115,7 +116,7 @@ export async function createOrder(order) {
   })
 
   clearDashboardCache()
-  return rows[0]
+  return Array.isArray(rows) ? rows[0] : null
 }
 
 export async function getOrders({ limit = 50, forceRefresh = false } = {}) {
@@ -135,7 +136,7 @@ export async function updateOrderStatus(orderId, status) {
   })
 
   clearDashboardCache()
-  return rows[0]
+  return Array.isArray(rows) ? rows[0] : null
 }
 
 export async function createReservation(reservation) {
@@ -146,7 +147,7 @@ export async function createReservation(reservation) {
   })
 
   clearDashboardCache()
-  return rows[0]
+  return Array.isArray(rows) ? rows[0] : null
 }
 
 export async function getReservations({ limit = 50, forceRefresh = false } = {}) {

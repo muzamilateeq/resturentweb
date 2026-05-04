@@ -13,10 +13,15 @@ import {
 import { getOrders, getReservations, updateOrderStatus } from './supabaseApi'
 
 const adminPasscodeHash = import.meta.env.VITE_ADMIN_PASSCODE_HASH
-const adminPasscode = import.meta.env.VITE_ADMIN_PASSCODE
 
 function formatPrice(value) {
-  return `$${value.toFixed(2)}`
+  const numericValue = Number(value)
+
+  if (!Number.isFinite(numericValue)) {
+    return '$0.00'
+  }
+
+  return `$${numericValue.toFixed(2)}`
 }
 
 function getDatabaseErrorMessage(error) {
@@ -49,6 +54,10 @@ function formatOrderItems(items = []) {
 }
 
 async function hashPasscode(passcode) {
+  if (!crypto?.subtle) {
+    throw new Error('Secure browser crypto is not available. Please use HTTPS or a modern browser.')
+  }
+
   const encoded = new TextEncoder().encode(passcode)
   const hashBuffer = await crypto.subtle.digest('SHA-256', encoded)
   const hashArray = Array.from(new Uint8Array(hashBuffer))
@@ -84,8 +93,8 @@ export default function AdminDashboard() {
         getOrders({ forceRefresh }),
         getReservations({ forceRefresh }),
       ])
-      setOrders(latestOrders)
-      setReservations(latestReservations)
+      setOrders(Array.isArray(latestOrders) ? latestOrders : [])
+      setReservations(Array.isArray(latestReservations) ? latestReservations : [])
       setMessage('Latest Supabase data loaded.')
     } catch (error) {
       setMessage(`Unable to load dashboard data: ${getDatabaseErrorMessage(error)}`)
@@ -98,18 +107,19 @@ export default function AdminDashboard() {
   async function unlockDashboard(event) {
     event.preventDefault()
 
-    if (!adminPasscodeHash && !adminPasscode) {
+    if (!adminPasscodeHash) {
       setMessage('Admin passcode is not configured. Add VITE_ADMIN_PASSCODE_HASH in your environment variables.')
       return
     }
 
-    if (adminPasscode && passcode === adminPasscode) {
-      setIsUnlocked(true)
-      setMessage('')
+    let enteredPasscodeHash = ''
+
+    try {
+      enteredPasscodeHash = await hashPasscode(passcode)
+    } catch (error) {
+      setMessage(error.message)
       return
     }
-
-    const enteredPasscodeHash = await hashPasscode(passcode)
 
     if (enteredPasscodeHash !== adminPasscodeHash?.toLowerCase()) {
       setMessage('Wrong passcode. Please try again.')
@@ -128,7 +138,9 @@ export default function AdminDashboard() {
     try {
       const updatedOrder = await updateOrderStatus(order.id, nextStatus)
       setOrders((current) =>
-        current.map((currentOrder) => (currentOrder.id === order.id ? updatedOrder : currentOrder)),
+        current.map((currentOrder) =>
+          currentOrder.id === order.id ? updatedOrder || { ...currentOrder, status: nextStatus } : currentOrder,
+        ),
       )
       setMessage(`Order ${order.id} marked as ${nextStatus}.`)
     } catch (error) {
@@ -262,7 +274,7 @@ export default function AdminDashboard() {
                     </div>
                     <span>{order.customer_phone}</span>
                     <span>{formatOrderItems(order.order_items)}</span>
-                    <strong>{formatPrice(Number(order.total_price || 0))}</strong>
+                    <strong>{formatPrice(order.total_price)}</strong>
                     <span className={order.status === 'Done' ? 'status-pill done' : 'status-pill'}>
                       {order.status}
                     </span>

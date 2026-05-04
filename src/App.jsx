@@ -114,7 +114,13 @@ const reviews = [
 const restaurantWhatsAppNumber = '923390047979'
 
 function formatPrice(value) {
-  return `$${value.toFixed(2)}`
+  const numericValue = Number(value)
+
+  if (!Number.isFinite(numericValue)) {
+    return '$0.00'
+  }
+
+  return `$${numericValue.toFixed(2)}`
 }
 
 function getDatabaseErrorMessage(error) {
@@ -157,16 +163,16 @@ function getOptimizedImageUrl(url, width = 900) {
 }
 
 function buildWhatsAppOrderUrl(order) {
-  const orderLines = formatOrderItems(order.order_items)
-  const addressLine = order.delivery_address ? `Address: ${order.delivery_address}` : 'Pickup order'
+  const orderLines = formatOrderItems(order?.order_items)
+  const addressLine = order?.delivery_address ? `Address: ${order.delivery_address}` : 'Pickup order'
   const message = [
-    `New Burger Rush Order ${order.id}`,
-    `Customer: ${order.customer_name}`,
-    `Phone: ${order.customer_phone}`,
-    `Type: ${order.type}`,
+    `New Burger Rush Order ${order?.id || 'Pending ID'}`,
+    `Customer: ${order?.customer_name || 'Not provided'}`,
+    `Phone: ${order?.customer_phone || 'Not provided'}`,
+    `Type: ${order?.type || 'Order'}`,
     addressLine,
     `Items: ${orderLines}`,
-    `Total: ${formatPrice(Number(order.total_price || 0))}`,
+    `Total: ${formatPrice(order?.total_price)}`,
   ].join('\n')
 
   return `https://wa.me/${restaurantWhatsAppNumber}?text=${encodeURIComponent(message)}`
@@ -297,7 +303,7 @@ export default function App() {
       setConfirmation(`Order ${orderId} confirmed. Estimated ${orderType.toLowerCase()} time is 30 minutes.`)
       setCart([])
       setCustomer({ name: '', phone: '', address: '' })
-      window.open(buildWhatsAppOrderUrl(savedOrder), '_blank', 'noopener,noreferrer')
+      window.open(buildWhatsAppOrderUrl(savedOrder || newOrder), '_blank', 'noopener,noreferrer')
     } catch (error) {
       setConfirmation(`Unable to save order: ${getDatabaseErrorMessage(error)}`)
       console.error(error)
@@ -309,7 +315,7 @@ export default function App() {
   async function reserveTable(event) {
     event.preventDefault()
 
-    if (!reservation.name || !reservation.date || !reservation.time) {
+    if (!reservation.name.trim() || !reservation.date || !reservation.time) {
       setReservationMessage('Please complete your reservation details.')
       return
     }
@@ -317,7 +323,10 @@ export default function App() {
     const newReservation = {
       id: `RS-${Math.floor(1000 + Math.random() * 9000)}`,
       date_created: new Date().toLocaleString(),
-      ...reservation,
+      name: reservation.name.trim(),
+      date: reservation.date,
+      time: reservation.time,
+      guests: reservation.guests,
     }
 
     try {
@@ -575,6 +584,7 @@ export default function App() {
                 <span>Customer name</span>
                 <input
                   placeholder="Enter full name"
+                  autoComplete="name"
                   value={customer.name}
                   onChange={(event) => setCustomer({ ...customer, name: event.target.value })}
                 />
@@ -583,6 +593,8 @@ export default function App() {
                 <span>Phone number</span>
                 <input
                   placeholder="Enter phone number"
+                  autoComplete="tel"
+                  inputMode="tel"
                   value={customer.phone}
                   onChange={(event) => setCustomer({ ...customer, phone: event.target.value })}
                 />
@@ -592,6 +604,7 @@ export default function App() {
                   <span>Delivery address</span>
                   <input
                     placeholder="House, street, area"
+                    autoComplete="street-address"
                     value={customer.address}
                     onChange={(event) => setCustomer({ ...customer, address: event.target.value })}
                   />
@@ -634,6 +647,7 @@ export default function App() {
                 <span>Name</span>
                 <input
                   placeholder="Your name"
+                  autoComplete="name"
                   value={reservation.name}
                   onChange={(event) => setReservation({ ...reservation, name: event.target.value })}
                 />

@@ -1240,11 +1240,44 @@ p {
 @media (max-width: 680px) {
   body {
     font-size: 0.95rem;
+    padding-bottom: 76px;
   }
 
   .site-header {
     padding: 0 14px;
     min-height: 62px;
+    gap: 10px;
+  }
+
+  .site-header .nav-toggle {
+    margin-left: auto;
+    order: 3;
+  }
+
+  .site-header .header-cart {
+    position: fixed;
+    right: 16px;
+    bottom: calc(16px + env(safe-area-inset-bottom));
+    z-index: 45;
+    width: 58px;
+    min-width: 58px;
+    height: 58px;
+    border-radius: 999px;
+    box-shadow:
+      0 16px 38px rgba(197, 31, 23, 0.32),
+      0 0 0 7px rgba(255, 248, 237, 0.9);
+  }
+
+  .site-header .header-cart:hover {
+    transform: translateY(-2px);
+  }
+
+  .site-header .header-cart span {
+    top: -5px;
+    right: -5px;
+    min-width: 24px;
+    height: 24px;
+    border: 2px solid #fff8ed;
   }
 
   .site-nav {
@@ -1533,6 +1566,14 @@ p {
   .nav-toggle {
     width: 42px;
     min-width: 42px;
+  }
+
+  .site-header .header-cart {
+    right: 14px;
+    bottom: calc(14px + env(safe-area-inset-bottom));
+    width: 54px;
+    min-width: 54px;
+    height: 54px;
   }
 
   .logo {
