@@ -10,7 +10,6 @@ import {
   Minus,
   Phone,
   Plus,
-  ReceiptText,
   Search,
   ShoppingBag,
   Star,
@@ -21,18 +20,9 @@ import {
 import {
   createOrder,
   createReservation,
-  deleteOrderRow,
-  deleteReservationRow,
-  getOrders,
-  getReservations,
-  updateOrder,
 } from './supabaseApi'
 
 const categories = ['All', 'Burgers', 'Chicken', 'Pizza', 'Sides', 'Dessert', 'Drinks']
-
-const OWNER_PASSCODE = '1234'
-
-const OWNER_STORAGE_KEY = 'burgerRushOwner'
 
 const menuItems = [
   {
@@ -122,20 +112,20 @@ function formatPrice(value) {
   return `$${value.toFixed(2)}`
 }
 
-function downloadFile(filename, content) {
-  const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = filename
-  link.click()
-  URL.revokeObjectURL(url)
+function getDatabaseErrorMessage(error) {
+  if (!error?.message) {
+    return 'Database error. Supabase table/policy check karein.'
+  }
+
+  try {
+    const details = JSON.parse(error.message)
+    return details.message || details.hint || error.message
+  } catch {
+    return error.message
+  }
 }
 
 export default function App() {
-  const [isOwnerPage, setIsOwnerPage] = useState(
-    () => window.location.pathname.endsWith('/owner') || window.location.hash === '#owner',
-  )
   const cartIconRef = useRef(null)
   const [activeCategory, setActiveCategory] = useState('All')
   const [searchTerm, setSearchTerm] = useState('')
@@ -146,15 +136,7 @@ export default function App() {
   const [confirmation, setConfirmation] = useState('')
   const [reservationMessage, setReservationMessage] = useState('')
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
-  const [ownerPasscode, setOwnerPasscode] = useState('')
-  const [ownerError, setOwnerError] = useState('')
-  const [dataError, setDataError] = useState('')
-  const [isOwner, setIsOwner] = useState(() => localStorage.getItem(OWNER_STORAGE_KEY) === 'true')
   const [flyingItem, setFlyingItem] = useState(null)
-  const [editingOrderId, setEditingOrderId] = useState(null)
-  const [editOrderDraft, setEditOrderDraft] = useState(null)
-  const [savedOrders, setSavedOrders] = useState([])
-  const [savedReservations, setSavedReservations] = useState([])
 
   const filteredItems = useMemo(() => {
     return menuItems.filter((item) => {
@@ -172,147 +154,6 @@ export default function App() {
   const tax = subtotal * 0.08
   const total = subtotal + deliveryFee + tax
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0)
-  const activeOrders = savedOrders.filter((order) => order.status !== 'Complete')
-  const completedOrders = savedOrders.filter((order) => order.status === 'Complete')
-  const ownerRevenue = savedOrders.reduce((sum, order) => sum + order.total, 0)
-
-  useEffect(() => {
-    refreshOwnerData()
-  }, [])
-
-  useEffect(() => {
-    function syncOwnerRoute() {
-      setIsOwnerPage(window.location.pathname.endsWith('/owner') || window.location.hash === '#owner')
-    }
-
-    window.addEventListener('hashchange', syncOwnerRoute)
-    return () => window.removeEventListener('hashchange', syncOwnerRoute)
-  }, [])
-
-  function ownerLogin(event) {
-    event.preventDefault()
-
-    if (ownerPasscode === OWNER_PASSCODE) {
-      setIsOwner(true)
-      localStorage.setItem(OWNER_STORAGE_KEY, 'true')
-      setOwnerPasscode('')
-      setOwnerError('')
-    } else {
-      setOwnerError('Wrong passcode. Please try again.')
-    }
-  }
-
-  function ownerLogout() {
-    setIsOwner(false)
-    localStorage.removeItem(OWNER_STORAGE_KEY)
-  }
-
-  async function refreshOwnerData() {
-    try {
-      const [orders, reservations] = await Promise.all([getOrders(), getReservations()])
-
-      setSavedOrders(orders)
-      setSavedReservations(reservations)
-      setDataError('')
-    } catch (error) {
-      setDataError('Database data load nahi ho saka. Supabase tables/policies check karein.')
-      console.error(error)
-    }
-  }
-
-  function exportOrders() {
-    const header = ['Order ID', 'Date', 'Name', 'Phone', 'Type', 'Location', 'Food Selected', 'Total']
-    const rows = savedOrders.map((order) => [
-      order.id,
-      order.date,
-      order.customer.name,
-      order.customer.phone,
-      order.type,
-      order.customer.address || 'Pickup from restaurant',
-      order.items.map((item) => `${item.quantity}x ${item.name}`).join(' | '),
-      formatPrice(order.total),
-    ])
-    const csv = [header, ...rows]
-      .map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(','))
-      .join('\n')
-
-    downloadFile('restaurant-orders.csv', csv)
-  }
-
-  async function deleteOrder(orderId) {
-    try {
-      await deleteOrderRow(orderId)
-      setSavedOrders((current) => current.filter((order) => order.id !== orderId))
-      if (editingOrderId === orderId) {
-        setEditingOrderId(null)
-        setEditOrderDraft(null)
-      }
-    } catch (error) {
-      setDataError('Order delete nahi ho saka. Supabase policy check karein.')
-      console.error(error)
-    }
-  }
-
-  async function markOrderComplete(orderId) {
-    try {
-      const updatedOrder = await updateOrder(orderId, { status: 'Complete' })
-      setSavedOrders((current) => current.map((order) => (order.id === orderId ? updatedOrder : order)))
-    } catch (error) {
-      setDataError('Order complete mark nahi ho saka. Supabase policy check karein.')
-      console.error(error)
-    }
-  }
-
-  async function deleteReservation(bookingId) {
-    try {
-      await deleteReservationRow(bookingId)
-      setSavedReservations((current) => current.filter((booking) => booking.id !== bookingId))
-    } catch (error) {
-      setDataError('Booking delete nahi ho saki. Supabase policy check karein.')
-      console.error(error)
-    }
-  }
-
-  function startEditOrder(order) {
-    setEditingOrderId(order.id)
-    setEditOrderDraft({
-      name: order.customer.name,
-      phone: order.customer.phone,
-      address: order.customer.address,
-      type: order.type,
-      food: order.items.map((item) => `${item.quantity}x ${item.name}`).join(', '),
-      total: order.total.toFixed(2),
-    })
-  }
-
-  async function saveEditedOrder(orderId) {
-    const editedItems = editOrderDraft.food
-      .split(',')
-      .map((item) => item.trim())
-      .filter(Boolean)
-      .map((item) => ({ name: item, quantity: 1, price: 0 }))
-
-    try {
-      const currentOrder = savedOrders.find((order) => order.id === orderId)
-      const updatedOrder = await updateOrder(orderId, {
-        customer: {
-          name: editOrderDraft.name,
-          phone: editOrderDraft.phone,
-          address: editOrderDraft.address,
-        },
-        items: editedItems.length ? editedItems : currentOrder.items,
-        total: Number(editOrderDraft.total) || currentOrder.total,
-        type: editOrderDraft.type,
-      })
-
-      setSavedOrders((current) => current.map((order) => (order.id === orderId ? updatedOrder : order)))
-      setEditingOrderId(null)
-      setEditOrderDraft(null)
-    } catch (error) {
-      setDataError('Order update nahi ho saka. Supabase policy check karein.')
-      console.error(error)
-    }
-  }
 
   function addToCart(item, event) {
     const image = event.currentTarget.closest('.food-card')?.querySelector('img')
@@ -383,13 +224,12 @@ export default function App() {
     }
 
     try {
-      const savedOrder = await createOrder(newOrder)
-      setSavedOrders((current) => [savedOrder, ...current])
+      await createOrder(newOrder)
       setConfirmation(`Order ${orderId} confirmed. Estimated ${orderType.toLowerCase()} time is 30 minutes.`)
       setCart([])
       setCustomer({ name: '', phone: '', address: '' })
     } catch (error) {
-      setConfirmation('Order database mein save nahi ho saka. Supabase table/policy check karein.')
+      setConfirmation(`Order save nahi hua: ${getDatabaseErrorMessage(error)}`)
       console.error(error)
     }
   }
@@ -409,267 +249,19 @@ export default function App() {
     }
 
     try {
-      const savedReservation = await createReservation(newReservation)
-      setSavedReservations((current) => [savedReservation, ...current])
+      await createReservation(newReservation)
       setReservationMessage(
         `Table reserved for ${reservation.guests} guests on ${reservation.date} at ${reservation.time}.`,
       )
       setReservation({ name: '', date: '', time: '', guests: '2' })
     } catch (error) {
-      setReservationMessage('Booking database mein save nahi ho saki. Supabase table/policy check karein.')
+      setReservationMessage(`Booking save nahi hui: ${getDatabaseErrorMessage(error)}`)
       console.error(error)
     }
   }
 
   function finishFlyAnimation() {
     setFlyingItem(null)
-  }
-
-  if (isOwnerPage) {
-    return (
-      <main className="owner-page">
-        <section className="admin-section">
-          <div className="section-heading">
-            <span className="eyebrow">Owner only</span>
-            <h1>Restaurant orders</h1>
-            <p>
-              This page is separate from the public website. Enter your passcode to view customer
-              orders, selected food, phone numbers, totals, and delivery locations.
-            </p>
-          </div>
-
-          {!isOwner ? (
-            <form className="owner-login" onSubmit={ownerLogin}>
-              <ReceiptText size={24} />
-              <h3>Owner login</h3>
-              <input
-                type="password"
-                placeholder="Enter owner passcode"
-                value={ownerPasscode}
-                onChange={(event) => setOwnerPasscode(event.target.value)}
-              />
-              <button className="primary-button" type="submit">
-                View orders
-              </button>
-              {ownerError && <p className="form-message">{ownerError}</p>}
-            </form>
-          ) : (
-            <>
-              {dataError && <p className="form-message">{dataError}</p>}
-
-              <div className="owner-stats">
-                <article>
-                  <span>Active orders</span>
-                  <strong>{activeOrders.length}</strong>
-                </article>
-                <article>
-                  <span>Completed</span>
-                  <strong>{completedOrders.length}</strong>
-                </article>
-                <article>
-                  <span>Bookings</span>
-                  <strong>{savedReservations.length}</strong>
-                </article>
-                <article>
-                  <span>Total sales</span>
-                  <strong>{formatPrice(ownerRevenue)}</strong>
-                </article>
-              </div>
-
-              <div className="admin-card orders-only">
-                <div className="admin-card-header">
-                  <h3>Saved order forms</h3>
-                  <span>{savedOrders.length}</span>
-                  <button className="logout-button" type="button" onClick={exportOrders}>
-                    Download
-                  </button>
-                  <button className="logout-button" type="button" onClick={refreshOwnerData}>
-                    Refresh
-                  </button>
-                  <button className="logout-button" type="button" onClick={ownerLogout}>
-                    Lock
-                  </button>
-                </div>
-                <div className="admin-list">
-                  {savedOrders.length === 0 ? (
-                    <p className="empty-cart">No orders yet. Place a test order from the customer website.</p>
-                  ) : (
-                    savedOrders.map((order) => (
-                      <article
-                        className={order.status === 'Complete' ? 'admin-row complete' : 'admin-row'}
-                        key={order.id}
-                      >
-                        <div className="admin-row-top">
-                          <strong>Order form {order.id}</strong>
-                          <span>{formatPrice(order.total)}</span>
-                        </div>
-                        <p>{order.date}</p>
-                        {editingOrderId === order.id && editOrderDraft ? (
-                          <div className="edit-order">
-                            <input
-                              value={editOrderDraft.name}
-                              placeholder="Customer name"
-                              onChange={(event) =>
-                                setEditOrderDraft({ ...editOrderDraft, name: event.target.value })
-                              }
-                            />
-                            <input
-                              value={editOrderDraft.phone}
-                              placeholder="Phone"
-                              onChange={(event) =>
-                                setEditOrderDraft({ ...editOrderDraft, phone: event.target.value })
-                              }
-                            />
-                            <select
-                              value={editOrderDraft.type}
-                              onChange={(event) =>
-                                setEditOrderDraft({ ...editOrderDraft, type: event.target.value })
-                              }
-                            >
-                              <option>Delivery</option>
-                              <option>Pickup</option>
-                            </select>
-                            <input
-                              value={editOrderDraft.address}
-                              placeholder="Location/address"
-                              onChange={(event) =>
-                                setEditOrderDraft({ ...editOrderDraft, address: event.target.value })
-                              }
-                            />
-                            <input
-                              value={editOrderDraft.food}
-                              placeholder="Food selected"
-                              onChange={(event) =>
-                                setEditOrderDraft({ ...editOrderDraft, food: event.target.value })
-                              }
-                            />
-                            <input
-                              value={editOrderDraft.total}
-                              placeholder="Total"
-                              onChange={(event) =>
-                                setEditOrderDraft({ ...editOrderDraft, total: event.target.value })
-                              }
-                            />
-                            <div className="order-actions">
-                              <button type="button" onClick={() => saveEditedOrder(order.id)}>
-                                Save
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setEditingOrderId(null)
-                                  setEditOrderDraft(null)
-                                }}
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <>
-                            <div className="admin-detail">
-                              <span>Name</span>
-                              <strong>{order.customer.name}</strong>
-                            </div>
-                            <div className="admin-detail">
-                              <span>Phone</span>
-                              <strong>{order.customer.phone}</strong>
-                            </div>
-                            <div className="admin-detail">
-                              <span>Type</span>
-                              <strong>{order.type}</strong>
-                            </div>
-                            <div className="admin-detail">
-                              <span>Location</span>
-                              <strong>{order.customer.address || 'Pickup from restaurant'}</strong>
-                            </div>
-                            <div className="admin-detail">
-                              <span>Food</span>
-                              <strong>
-                                {order.items.map((item) => `${item.quantity}x ${item.name}`).join(', ')}
-                              </strong>
-                            </div>
-                            <div className="admin-detail">
-                              <span>Status</span>
-                              <strong className={order.status === 'Complete' ? 'complete-label' : ''}>
-                                {order.status === 'Complete' ? (
-                                  <>
-                                    <CheckCircle2 size={16} />
-                                    Order complete
-                                  </>
-                                ) : (
-                                  order.status
-                                )}
-                              </strong>
-                            </div>
-                            {order.status !== 'Complete' && (
-                              <div className="order-actions">
-                                <button type="button" onClick={() => startEditOrder(order)}>
-                                  Edit
-                                </button>
-                                <button type="button" onClick={() => markOrderComplete(order.id)}>
-                                  Complete
-                                </button>
-                                <button className="danger" type="button" onClick={() => deleteOrder(order.id)}>
-                                  Delete
-                                </button>
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </article>
-                    ))
-                  )}
-                </div>
-              </div>
-
-              <div className="admin-card reservations-only">
-                <div className="admin-card-header">
-                  <h3>Table bookings</h3>
-                  <span>{savedReservations.length}</span>
-                </div>
-                <div className="admin-list reservation-list">
-                  {savedReservations.length === 0 ? (
-                    <p className="empty-cart">No table bookings yet.</p>
-                  ) : (
-                    savedReservations.map((booking) => (
-                      <article className="admin-row booking-row" key={booking.id}>
-                        <div className="admin-row-top">
-                          <strong>Booking form {booking.id}</strong>
-                          <ReceiptText size={18} />
-                        </div>
-                      <p>{booking.date_created}</p>
-                        <div className="admin-detail">
-                          <span>Name</span>
-                          <strong>{booking.name}</strong>
-                        </div>
-                        <div className="admin-detail">
-                          <span>Date</span>
-                          <strong>{booking.date}</strong>
-                        </div>
-                        <div className="admin-detail">
-                          <span>Time</span>
-                          <strong>{booking.time}</strong>
-                        </div>
-                        <div className="admin-detail">
-                          <span>Guests</span>
-                          <strong>{booking.guests}</strong>
-                        </div>
-                        <div className="order-actions">
-                          <button className="danger" type="button" onClick={() => deleteReservation(booking.id)}>
-                            Delete
-                          </button>
-                        </div>
-                      </article>
-                    ))
-                  )}
-                </div>
-              </div>
-            </>
-          )}
-        </section>
-      </main>
-    )
   }
 
   return (

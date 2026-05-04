@@ -19,7 +19,7 @@ async function request(table, options = {}) {
 
   if (!response.ok) {
     const message = await response.text()
-    throw new Error(message || `Supabase request failed with ${response.status}`)
+    throw new Error(message || `Supabase request failed with status ${response.status}`)
   }
 
   if (response.status === 204) {
@@ -27,12 +27,6 @@ async function request(table, options = {}) {
   }
 
   return response.json()
-}
-
-export async function getOrders() {
-  return request('orders', {
-    query: '?select=*&order=created_at.desc',
-  })
 }
 
 export async function createOrder(order) {
@@ -45,30 +39,6 @@ export async function createOrder(order) {
   return rows[0]
 }
 
-export async function updateOrder(orderId, updates) {
-  const rows = await request('orders', {
-    method: 'PATCH',
-    query: `?id=eq.${encodeURIComponent(orderId)}`,
-    headers: { Prefer: 'return=representation' },
-    body: JSON.stringify(updates),
-  })
-
-  return rows[0]
-}
-
-export async function deleteOrderRow(orderId) {
-  return request('orders', {
-    method: 'DELETE',
-    query: `?id=eq.${encodeURIComponent(orderId)}`,
-  })
-}
-
-export async function getReservations() {
-  return request('reservations', {
-    query: '?select=*&order=created_at.desc',
-  })
-}
-
 export async function createReservation(reservation) {
   const rows = await request('reservations', {
     method: 'POST',
@@ -77,11 +47,4 @@ export async function createReservation(reservation) {
   })
 
   return rows[0]
-}
-
-export async function deleteReservationRow(bookingId) {
-  return request('reservations', {
-    method: 'DELETE',
-    query: `?id=eq.${encodeURIComponent(bookingId)}`,
-  })
 }

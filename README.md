@@ -1,6 +1,6 @@
 # Burger Rush Restaurant
 
-A responsive Vite + React fast-food restaurant website with online ordering, table booking, add-to-cart animation, and a private owner page for saved orders.
+A responsive Vite + React fast-food restaurant website with online ordering, table booking, add-to-cart animation, and Supabase Postgres storage.
 
 ## Features
 
@@ -10,8 +10,7 @@ A responsive Vite + React fast-food restaurant website with online ordering, tab
 - Add-to-cart fly animation
 - Delivery and pickup checkout form
 - Table booking form
-- Private `/owner` page with passcode-protected order and booking records
-- Owner actions for editing, completing, deleting, and exporting orders
+- Supabase Postgres storage for orders and table bookings
 - Responsive layout for desktop, tablet, and mobile screens
 
 ## Local Development
@@ -25,24 +24,6 @@ Customer website:
 
 ```text
 http://127.0.0.1:5173/
-```
-
-Owner page locally:
-
-```text
-http://127.0.0.1:5173/owner
-```
-
-Owner page on GitHub Pages:
-
-```text
-https://YOUR-USERNAME.github.io/YOUR-REPOSITORY/#owner
-```
-
-Demo owner passcode:
-
-```text
-1234
 ```
 
 ## Production Build
@@ -68,12 +49,6 @@ Your customer website will be available at:
 https://YOUR-USERNAME.github.io/YOUR-REPOSITORY/
 ```
 
-The owner page will be available at:
-
-```text
-https://YOUR-USERNAME.github.io/YOUR-REPOSITORY/#owner
-```
-
 ### Alternative: Deploy From `docs`
 
 If you use **Settings > Pages > Deploy from a branch**, run:
@@ -90,6 +65,56 @@ Branch: main
 Folder: /docs
 ```
 
-## Note
+## Supabase Data
 
-This project stores demo orders and bookings in browser `localStorage`. For a real public restaurant website, connect the checkout and owner dashboard to a secure backend database and authentication system.
+Orders and bookings are saved in Supabase Postgres through the Supabase REST API. View customer data directly inside your Supabase dashboard tables:
+
+- `orders`
+- `reservations`
+
+Run [supabase_schema.sql](./supabase_schema.sql) in **Supabase > SQL Editor** before using the website.
+
+The schema creates:
+
+- `orders`: customer name/phone/address in `customer`, selected food in `items`, order type, total, status, and timestamps
+- `reservations`: booking name, date, time, guests, and timestamps
+
+You can also copy and run this SQL manually:
+
+```sql
+create table if not exists public.orders (
+  id text primary key,
+  date text not null,
+  type text not null,
+  customer jsonb not null,
+  items jsonb not null,
+  total numeric not null,
+  status text not null default 'New',
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.reservations (
+  id text primary key,
+  date_created text not null,
+  name text not null,
+  date text not null,
+  time text not null,
+  guests text not null,
+  created_at timestamptz not null default now()
+);
+
+alter table public.orders enable row level security;
+alter table public.reservations enable row level security;
+
+create policy "Allow public order inserts"
+on public.orders for insert
+to anon
+with check (true);
+
+create policy "Allow public reservation inserts"
+on public.reservations for insert
+to anon
+with check (true);
+```
+
+For a production restaurant, add server-side validation and private dashboard authentication if you later need an internal admin panel.
