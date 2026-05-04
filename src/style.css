@@ -546,6 +546,41 @@ p {
   animation: toastSlide 260ms ease both;
 }
 
+.route-loader,
+.error-boundary {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  gap: 14px;
+  background: linear-gradient(180deg, #fff4dc, #fff8ed 48%, #ffffff);
+  color: #1f1f1f;
+  padding: 24px;
+  text-align: center;
+}
+
+.error-boundary {
+  align-content: center;
+}
+
+.error-boundary strong {
+  font-size: clamp(2rem, 4vw, 3.4rem);
+}
+
+.error-boundary p {
+  max-width: 520px;
+  margin: 0;
+}
+
+.error-boundary button {
+  min-height: 44px;
+  border: 0;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #ef3b2d, #c51f17);
+  color: #ffffff;
+  padding: 0 18px;
+  font-weight: 900;
+}
+
 @keyframes flyToCart {
   0% {
     opacity: 0;

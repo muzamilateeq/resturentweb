@@ -1,33 +1,29 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 
 import {
   CalendarCheck,
   CheckCircle2,
   ChevronRight,
   Clock3,
-  LockKeyhole,
   MapPin,
   Menu,
   Minus,
   Phone,
   Plus,
-  RefreshCw,
-  ReceiptText,
   Search,
   ShoppingBag,
   Star,
   Truck,
   Utensils,
-  Users,
   X,
 } from 'lucide-react'
 import {
   createOrder,
   createReservation,
-  getOrders,
-  getReservations,
-  updateOrderStatus,
 } from './supabaseApi'
+import ErrorBoundary from './ErrorBoundary'
+
+const AdminDashboard = lazy(() => import('./AdminDashboard.jsx'))
 
 const categories = ['All', 'Burgers', 'Chicken', 'Pizza', 'Sides', 'Dessert', 'Drinks']
 
@@ -115,7 +111,6 @@ const reviews = [
   },
 ]
 
-const adminPasscode = 'Muzamil@pizza01'
 const restaurantWhatsAppNumber = '923390047979'
 
 function formatPrice(value) {
@@ -135,20 +130,30 @@ function getDatabaseErrorMessage(error) {
   }
 }
 
-function formatDate(value) {
-  if (!value) {
-    return 'Not available'
-  }
-
-  return new Date(value).toLocaleString()
-}
-
 function formatOrderItems(items = []) {
   if (!Array.isArray(items) || items.length === 0) {
     return 'No items'
   }
 
   return items.map((item) => `${item.quantity} x ${item.name}`).join(', ')
+}
+
+function getOptimizedImageUrl(url, width = 900) {
+  try {
+    const imageUrl = new URL(url)
+
+    if (imageUrl.hostname.includes('images.unsplash.com')) {
+      imageUrl.searchParams.set('auto', 'format')
+      imageUrl.searchParams.set('fit', 'crop')
+      imageUrl.searchParams.set('w', String(width))
+      imageUrl.searchParams.set('q', '75')
+      imageUrl.searchParams.set('fm', 'webp')
+    }
+
+    return imageUrl.toString()
+  } catch {
+    return url
+  }
 }
 
 function buildWhatsAppOrderUrl(order) {
@@ -165,239 +170,6 @@ function buildWhatsAppOrderUrl(order) {
   ].join('\n')
 
   return `https://wa.me/${restaurantWhatsAppNumber}?text=${encodeURIComponent(message)}`
-}
-
-function AdminDashboard() {
-  const [passcode, setPasscode] = useState('')
-  const [isUnlocked, setIsUnlocked] = useState(false)
-  const [orders, setOrders] = useState([])
-  const [reservations, setReservations] = useState([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [updatingOrderId, setUpdatingOrderId] = useState('')
-  const [message, setMessage] = useState('')
-
-  const totalSales = orders.reduce((sum, order) => sum + Number(order.total_price || 0), 0)
-  const deliveryOrders = orders.filter((order) => order.type === 'Delivery').length
-  const pickupOrders = orders.filter((order) => order.type === 'Pickup').length
-
-  async function loadDashboardData() {
-    setIsLoading(true)
-    setMessage('')
-
-    try {
-      const [latestOrders, latestReservations] = await Promise.all([getOrders(), getReservations()])
-      setOrders(latestOrders)
-      setReservations(latestReservations)
-      setMessage('Latest Supabase data loaded.')
-    } catch (error) {
-      setMessage(`Unable to load dashboard data: ${getDatabaseErrorMessage(error)}`)
-      console.error(error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  function unlockDashboard(event) {
-    event.preventDefault()
-
-    if (passcode !== adminPasscode) {
-      setMessage('Wrong passcode. Please try again.')
-      return
-    }
-
-    setIsUnlocked(true)
-    setMessage('')
-  }
-
-  async function toggleOrderStatus(order) {
-    const nextStatus = order.status === 'Done' ? 'Pending' : 'Done'
-    setUpdatingOrderId(order.id)
-    setMessage('')
-
-    try {
-      const updatedOrder = await updateOrderStatus(order.id, nextStatus)
-      setOrders((current) =>
-        current.map((currentOrder) => (currentOrder.id === order.id ? updatedOrder : currentOrder)),
-      )
-      setMessage(`Order ${order.id} marked as ${nextStatus}.`)
-    } catch (error) {
-      setMessage(`Unable to update order status: ${getDatabaseErrorMessage(error)}`)
-      console.error(error)
-    } finally {
-      setUpdatingOrderId('')
-    }
-  }
-
-  useEffect(() => {
-    if (isUnlocked) {
-      loadDashboardData()
-    }
-  }, [isUnlocked])
-
-  if (!isUnlocked) {
-    return (
-      <div className="admin-shell">
-        <form className="admin-login" onSubmit={unlockDashboard}>
-          <a className="logo" href="/" aria-label="Burger Rush home">
-            <span>
-              <Utensils size={22} />
-            </span>
-            <strong>Burger Rush</strong>
-          </a>
-          <div>
-            <span className="eyebrow">Private owner area</span>
-            <h1>Admin dashboard</h1>
-            <p>Enter your passcode to view live orders and table bookings from Supabase.</p>
-          </div>
-          <label>
-            <span>Passcode</span>
-            <input
-              type="password"
-              placeholder="Enter passcode"
-              value={passcode}
-              onChange={(event) => setPasscode(event.target.value)}
-            />
-          </label>
-          <button className="primary-button" type="submit">
-            <LockKeyhole size={18} />
-            Open dashboard
-          </button>
-          {message && <p className="form-message">{message}</p>}
-        </form>
-      </div>
-    )
-  }
-
-  return (
-    <div className="admin-shell">
-      <header className="admin-header">
-        <a className="logo" href="/" aria-label="Burger Rush home">
-          <span>
-            <Utensils size={22} />
-          </span>
-          <strong>Burger Rush</strong>
-        </a>
-        <div className="admin-actions">
-          <button type="button" onClick={loadDashboardData} disabled={isLoading}>
-            <RefreshCw size={17} />
-            {isLoading ? 'Loading' : 'Refresh'}
-          </button>
-          <a href="/">View website</a>
-        </div>
-      </header>
-
-      <main className="admin-main">
-        <section className="admin-title">
-          <span className="eyebrow">Supabase live data</span>
-          <h1>Orders dashboard</h1>
-          <p>Customer orders and reservations appear here after they are saved in Supabase.</p>
-        </section>
-
-        <section className="admin-stats" aria-label="Dashboard summary">
-          <article>
-            <ReceiptText size={22} />
-            <span>Total orders</span>
-            <strong>{orders.length}</strong>
-          </article>
-          <article>
-            <Truck size={22} />
-            <span>Delivery</span>
-            <strong>{deliveryOrders}</strong>
-          </article>
-          <article>
-            <ShoppingBag size={22} />
-            <span>Pickup</span>
-            <strong>{pickupOrders}</strong>
-          </article>
-          <article>
-            <Users size={22} />
-            <span>Reservations</span>
-            <strong>{reservations.length}</strong>
-          </article>
-          <article>
-            <CheckCircle2 size={22} />
-            <span>Total sales</span>
-            <strong>{formatPrice(totalSales)}</strong>
-          </article>
-        </section>
-
-        {message && <p className="admin-message">{message}</p>}
-
-        <section className="admin-panel">
-          <div className="admin-panel-heading">
-            <h2>Latest orders</h2>
-            <span>{orders.length} records</span>
-          </div>
-
-          <div className="admin-orders-table">
-            {orders.length === 0 ? (
-              <p className="empty-cart">No orders found yet.</p>
-            ) : (
-              <>
-                <div className="admin-table-header">
-                  <span>Customer</span>
-                  <span>Phone</span>
-                  <span>Items</span>
-                  <span>Total</span>
-                  <span>Status</span>
-                  <span>Action</span>
-                </div>
-                {orders.map((order) => (
-                  <article className="admin-table-row" key={order.id}>
-                    <div>
-                      <strong>{order.customer_name}</strong>
-                      <small>{order.id} - {order.type}</small>
-                      <small>{order.delivery_address || 'Pickup order'}</small>
-                    </div>
-                    <span>{order.customer_phone}</span>
-                    <span>{formatOrderItems(order.order_items)}</span>
-                    <strong>{formatPrice(Number(order.total_price || 0))}</strong>
-                    <span className={order.status === 'Done' ? 'status-pill done' : 'status-pill'}>
-                      {order.status}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => toggleOrderStatus(order)}
-                      disabled={updatingOrderId === order.id}
-                    >
-                      {updatingOrderId === order.id
-                        ? 'Saving'
-                        : order.status === 'Done'
-                          ? 'Mark pending'
-                          : 'Mark done'}
-                    </button>
-                  </article>
-                ))}
-              </>
-            )}
-          </div>
-        </section>
-
-        <section className="admin-panel">
-          <div className="admin-panel-heading">
-            <h2>Table bookings</h2>
-            <span>{reservations.length} records</span>
-          </div>
-
-          <div className="reservation-table">
-            {reservations.length === 0 ? (
-              <p className="empty-cart">No reservations found yet.</p>
-            ) : (
-              reservations.map((booking) => (
-                <article className="reservation-row" key={booking.id}>
-                  <strong>{booking.name}</strong>
-                  <span>{booking.date}</span>
-                  <span>{booking.time}</span>
-                  <span>{booking.guests} guests</span>
-                  <span>{formatDate(booking.created_at)}</span>
-                </article>
-              ))
-            )}
-          </div>
-        </section>
-      </main>
-    </div>
-  )
 }
 
 export default function App() {
@@ -570,11 +342,18 @@ export default function App() {
     window.location.hash === '#admin-dashboard' ||
     window.location.hash === '#admin'
   ) {
-    return <AdminDashboard />
+    return (
+      <ErrorBoundary>
+        <Suspense fallback={<div className="route-loader">Loading dashboard...</div>}>
+          <AdminDashboard />
+        </Suspense>
+      </ErrorBoundary>
+    )
   }
 
   return (
-    <div className="site-shell">
+    <ErrorBoundary>
+      <div className="site-shell">
       <header className="site-header">
         <a className="logo" href="#home" aria-label="Burger Rush home">
           <span>
@@ -628,8 +407,22 @@ export default function App() {
 
           <div className="hero-card" aria-label="Featured dish">
             <img
-              src="https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=1100&q=80"
+              src={getOptimizedImageUrl(
+                'https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=1100&q=80',
+                960,
+              )}
+              srcSet={`${getOptimizedImageUrl(
+                'https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=1100&q=80',
+                640,
+              )} 640w, ${getOptimizedImageUrl(
+                'https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=1100&q=80',
+                960,
+              )} 960w`}
+              sizes="(max-width: 680px) 100vw, 40vw"
               alt="Gourmet burger with fries"
+              loading="eager"
+              decoding="async"
+              fetchPriority="high"
             />
             <div>
               <span>Best seller</span>
@@ -694,7 +487,17 @@ export default function App() {
             ) : (
               filteredItems.map((item) => (
                 <article className="food-card" key={item.id}>
-                  <img src={item.image} alt={item.name} />
+                  <img
+                    src={getOptimizedImageUrl(item.image, 600)}
+                    srcSet={`${getOptimizedImageUrl(item.image, 420)} 420w, ${getOptimizedImageUrl(
+                      item.image,
+                      700,
+                    )} 700w`}
+                    sizes="(max-width: 680px) 100vw, (max-width: 980px) 50vw, 33vw"
+                    alt={item.name}
+                    loading="lazy"
+                    decoding="async"
+                  />
                   <div className="food-card-body">
                     <div className="food-meta">
                       <span>
@@ -928,7 +731,7 @@ export default function App() {
           onAnimationEnd={finishFlyAnimation}
           aria-hidden="true"
         >
-          <img src={flyingItem.image} alt="" />
+          <img src={getOptimizedImageUrl(flyingItem.image, 180)} alt="" loading="lazy" decoding="async" />
         </div>
       )}
 
@@ -938,6 +741,7 @@ export default function App() {
           {toastMessage}
         </div>
       )}
-    </div>
+      </div>
+    </ErrorBoundary>
   )
 }

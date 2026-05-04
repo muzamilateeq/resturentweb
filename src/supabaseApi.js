@@ -1,14 +1,41 @@
-const SUPABASE_REST_URL = 'https://ngqsbmwqagkjdawqhrgk.supabase.co/rest/v1'
-const SUPABASE_ANON_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ncXNibXdxYWdramRhd3FocmdrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc4Nzk5NjksImV4cCI6MjA5MzQ1NTk2OX0.6-Na4NCehpui1D-D6y_xpS1luay3E6rELzR7-CcnSGU'
+const SUPABASE_REST_URL = import.meta.env.VITE_SUPABASE_REST_URL
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
+const CACHE_TTL_MS = 30_000
+
+const ordersSelect =
+  'id,date,type,customer_name,customer_phone,delivery_address,order_items,total_price,status,created_at'
+const reservationsSelect = 'id,date_created,name,date,time,guests,created_at'
+
+const responseCache = new Map()
+
+function assertSupabaseConfig() {
+  if (!SUPABASE_REST_URL || !SUPABASE_ANON_KEY) {
+    throw new Error('Missing Supabase environment variables. Set VITE_SUPABASE_REST_URL and VITE_SUPABASE_ANON_KEY.')
+  }
+}
 
 const baseHeaders = {
   apikey: SUPABASE_ANON_KEY,
   Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
 }
 
+function getCacheKey(table, query) {
+  return `${table}:${query || ''}`
+}
+
 async function request(table, options = {}) {
-  const response = await fetch(`${SUPABASE_REST_URL}/${table}${options.query || ''}`, {
+  assertSupabaseConfig()
+
+  const query = options.query || ''
+  const cacheKey = getCacheKey(table, query)
+  const shouldUseCache = options.cache && options.method !== 'POST' && options.method !== 'PATCH'
+  const cached = responseCache.get(cacheKey)
+
+  if (shouldUseCache && cached && Date.now() - cached.createdAt < CACHE_TTL_MS && !options.forceRefresh) {
+    return cached.data
+  }
+
+  const response = await fetch(`${SUPABASE_REST_URL}/${table}${query}`, {
     ...options,
     headers: {
       ...baseHeaders,
@@ -26,7 +53,18 @@ async function request(table, options = {}) {
     return null
   }
 
-  return response.json()
+  const data = await response.json()
+
+  if (shouldUseCache) {
+    responseCache.set(cacheKey, { data, createdAt: Date.now() })
+  }
+
+  return data
+}
+
+function clearDashboardCache() {
+  responseCache.delete(getCacheKey('orders', `?select=${ordersSelect}&order=created_at.desc&limit=50`))
+  responseCache.delete(getCacheKey('reservations', `?select=${reservationsSelect}&order=created_at.desc&limit=50`))
 }
 
 export async function createOrder(order) {
@@ -36,23 +74,27 @@ export async function createOrder(order) {
     body: JSON.stringify(order),
   })
 
+  clearDashboardCache()
   return rows[0]
 }
 
-export async function getOrders() {
+export async function getOrders({ limit = 50, forceRefresh = false } = {}) {
   return request('orders', {
-    query: '?select=*&order=created_at.desc',
+    query: `?select=${ordersSelect}&order=created_at.desc&limit=${limit}`,
+    cache: true,
+    forceRefresh,
   })
 }
 
 export async function updateOrderStatus(orderId, status) {
   const rows = await request('orders', {
     method: 'PATCH',
-    query: `?id=eq.${encodeURIComponent(orderId)}`,
+    query: `?id=eq.${encodeURIComponent(orderId)}&select=${ordersSelect}`,
     headers: { Prefer: 'return=representation' },
     body: JSON.stringify({ status }),
   })
 
+  clearDashboardCache()
   return rows[0]
 }
 
@@ -63,11 +105,14 @@ export async function createReservation(reservation) {
     body: JSON.stringify(reservation),
   })
 
+  clearDashboardCache()
   return rows[0]
 }
 
-export async function getReservations() {
+export async function getReservations({ limit = 50, forceRefresh = false } = {}) {
   return request('reservations', {
-    query: '?select=*&order=created_at.desc',
+    query: `?select=${reservationsSelect}&order=created_at.desc&limit=${limit}`,
+    cache: true,
+    forceRefresh,
   })
 }

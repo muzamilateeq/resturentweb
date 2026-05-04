@@ -17,7 +17,16 @@ A responsive Vite + React fast-food restaurant website with online ordering, tab
 
 ```powershell
 npm install
+copy .env.example .env
 npm run dev
+```
+
+Add your real Supabase values in `.env` before running the app:
+
+```text
+VITE_SUPABASE_REST_URL=your-supabase-rest-url
+VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
+VITE_ADMIN_PASSCODE=your-private-dashboard-passcode
 ```
 
 Customer website:
@@ -37,6 +46,8 @@ http://127.0.0.1:5173/admin-dashboard
 ```powershell
 npm run build
 ```
+
+For Vercel or any production host, add the same `VITE_SUPABASE_REST_URL`, `VITE_SUPABASE_ANON_KEY`, and `VITE_ADMIN_PASSCODE` values in the project environment variables.
 
 ## GitHub Pages Deployment
 
@@ -131,3 +142,11 @@ with check (true);
 ```
 
 For a production restaurant, add server-side validation and private dashboard authentication if you later need an internal admin panel.
+
+## Performance Notes
+
+- The admin dashboard is lazy-loaded, so public visitors do not download that code on the first page load.
+- Supabase dashboard reads request only the columns the UI needs and are limited to the latest 50 rows.
+- Dashboard reads use a short in-memory cache to reduce repeated API calls.
+- Menu images use responsive WebP URLs and lazy loading where appropriate.
+- Error boundaries keep the UI from crashing completely if one section fails.
