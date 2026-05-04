@@ -12,7 +12,7 @@ import {
 
 import { getOrders, getReservations, updateOrderStatus } from './supabaseApi'
 
-const adminPasscode = import.meta.env.VITE_ADMIN_PASSCODE
+const adminPasscodeHash = import.meta.env.VITE_ADMIN_PASSCODE_HASH
 
 function formatPrice(value) {
   return `$${value.toFixed(2)}`
@@ -45,6 +45,14 @@ function formatOrderItems(items = []) {
   }
 
   return items.map((item) => `${item.quantity} x ${item.name}`).join(', ')
+}
+
+async function hashPasscode(passcode) {
+  const encoded = new TextEncoder().encode(passcode)
+  const hashBuffer = await crypto.subtle.digest('SHA-256', encoded)
+  const hashArray = Array.from(new Uint8Array(hashBuffer))
+
+  return hashArray.map((byte) => byte.toString(16).padStart(2, '0')).join('')
 }
 
 export default function AdminDashboard() {
@@ -86,15 +94,17 @@ export default function AdminDashboard() {
     }
   }
 
-  function unlockDashboard(event) {
+  async function unlockDashboard(event) {
     event.preventDefault()
 
-    if (!adminPasscode) {
-      setMessage('Admin passcode is not configured. Add VITE_ADMIN_PASSCODE in your environment variables.')
+    if (!adminPasscodeHash) {
+      setMessage('Admin passcode is not configured. Add VITE_ADMIN_PASSCODE_HASH in your environment variables.')
       return
     }
 
-    if (passcode !== adminPasscode) {
+    const enteredPasscodeHash = await hashPasscode(passcode)
+
+    if (enteredPasscodeHash !== adminPasscodeHash.toLowerCase()) {
       setMessage('Wrong passcode. Please try again.')
       return
     }

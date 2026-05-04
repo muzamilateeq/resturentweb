@@ -26,7 +26,16 @@ Add your real Supabase values in `.env` before running the app:
 ```text
 VITE_SUPABASE_REST_URL=your-supabase-rest-url
 VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
-VITE_ADMIN_PASSCODE=your-private-dashboard-passcode
+VITE_ADMIN_PASSCODE_HASH=sha256-hash-of-your-private-dashboard-passcode
+```
+
+Create the passcode hash with PowerShell:
+
+```powershell
+$text = 'your-private-dashboard-passcode'
+$bytes = [System.Text.Encoding]::UTF8.GetBytes($text)
+$hash = [System.Security.Cryptography.SHA256]::Create().ComputeHash($bytes)
+($hash | ForEach-Object { $_.ToString('x2') }) -join ''
 ```
 
 Customer website:
@@ -47,7 +56,7 @@ http://127.0.0.1:5173/admin-dashboard
 npm run build
 ```
 
-For Vercel or any production host, add the same `VITE_SUPABASE_REST_URL`, `VITE_SUPABASE_ANON_KEY`, and `VITE_ADMIN_PASSCODE` values in the project environment variables.
+For Vercel or any production host, add the same `VITE_SUPABASE_REST_URL`, `VITE_SUPABASE_ANON_KEY`, and `VITE_ADMIN_PASSCODE_HASH` values in the project environment variables.
 
 ## GitHub Pages Deployment
 
@@ -146,7 +155,28 @@ For a production restaurant, add server-side validation and private dashboard au
 ## Performance Notes
 
 - The admin dashboard is lazy-loaded, so public visitors do not download that code on the first page load.
+- React and icon code are split into separate production chunks for better long-term browser caching.
 - Supabase dashboard reads request only the columns the UI needs and are limited to the latest 50 rows.
 - Dashboard reads use a short in-memory cache to reduce repeated API calls.
 - Menu images use responsive WebP URLs and lazy loading where appropriate.
+- Production assets are minified by Vite and Vercel serves hashed files with long-lived cache headers.
+- A lightweight service worker caches same-origin static JS, CSS, and image assets for repeat visits.
 - Error boundaries keep the UI from crashing completely if one section fails.
+
+### Optional Image Compression Tools
+
+This project mainly uses remote Unsplash images, already requested as responsive WebP URLs. If you later add local images, compress them before committing:
+
+```powershell
+npx sharp-cli --input public/images --output public/images/optimized --format webp --quality 75
+```
+
+or use Squoosh for one-off manual compression:
+
+```text
+https://squoosh.app/
+```
+
+### Font Loading
+
+The site currently uses system fonts, which is the fastest option because no font files are downloaded. If you add Google Fonts later, use `font-display: swap`, preload only the primary font weight, and avoid loading too many weights.
